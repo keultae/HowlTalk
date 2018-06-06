@@ -8,6 +8,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -53,6 +54,7 @@ public class PeopleFragment extends Fragment{
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                     userModels.clear();
                     for(DataSnapshot snapshot: dataSnapshot.getChildren()) {
+                        Log.d("PeopleFragment", "snapshot=" + snapshot.toString());
                         UserModel userModel = snapshot.getValue(UserModel.class);
 
                         if(userModel.uid.equals(myUid)) {

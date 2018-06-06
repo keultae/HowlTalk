@@ -6,10 +6,15 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -17,16 +22,21 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.model.ChatModel;
+import com.keultae.howltalk.model.UserModel;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class ChatFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_chat, container, false);
-        RecyclerView recyclerView = (RecyclerView)view.findViewById(R.id.chatfragment_recyclerview);
+
+        RecyclerView recyclerView = (RecyclerView) view.findViewById(R.id.chatfragment_recyclerview);
         recyclerView.setAdapter(new ChatRecyclerViewAdapter());
         recyclerView.setLayoutManager(new LinearLayoutManager(inflater.getContext()));
 
@@ -40,14 +50,18 @@ public class ChatFragment extends Fragment {
         public ChatRecyclerViewAdapter() {
             uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users"+uid)
+            Log.d("", "uid=" + uid);
+
+            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                             chatModels.clear();
                             for(DataSnapshot item: dataSnapshot.getChildren()) {
+                                Log.d("", "item=" + item.toString());
                                 chatModels.add(item.getValue(ChatModel.class));
                             }
+                            Log.d("", "chatModels.size():" + chatModels.size());
                             notifyDataSetChanged();
                         }
 
@@ -69,7 +83,44 @@ public class ChatFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            final CustomViewHolder customViewHolder = (CustomViewHolder)holder;
+            String destinationUid = null;
 
+            Log.d("onBindViewHolder()", "position=" + position);
+
+            // 챗방에 있는 유저를 모두 체크
+            for(String user: chatModels.get(position).users.keySet()) {
+                if(!user.equals(uid)) {
+                    destinationUid = user;
+                }
+            }
+            FirebaseDatabase.getInstance().getReference().child("users").child(destinationUid)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                            UserModel userModel = dataSnapshot.getValue(UserModel.class);
+                            Glide.with(customViewHolder.itemView.getContext())
+                                    .load(userModel.profileImageUrl)
+                                    .apply(new RequestOptions().circleCrop())
+                                    .into(customViewHolder.imageView);
+
+                            customViewHolder.textView_title.setText(userModel.userName);
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                        }
+                    });
+
+            // 메시지를 내림 차순으로 정렬 후 마지막 메시지의 키 값을 가져옴
+            Map<String, ChatModel.Comment> commentMap = new TreeMap<>(Collections.reverseOrder());
+            Log.d("", "comments=" + chatModels.get(position).comments.toString());
+            commentMap.putAll(chatModels.get(position).comments);
+            String lastMesssageKey = (String) commentMap.keySet().toArray()[0];
+            Log.d("", "lastMesssageKey=" + lastMesssageKey);
+            Log.d("", "message=" + chatModels.get(position).comments.get(lastMesssageKey).message);
+            customViewHolder.textView_last_message.setText(chatModels.get(position).comments.get(lastMesssageKey).message);
         }
 
         @Override
@@ -78,8 +129,16 @@ public class ChatFragment extends Fragment {
         }
 
         private class CustomViewHolder extends RecyclerView.ViewHolder {
+            public ImageView imageView;
+            public TextView textView_title;
+            public TextView textView_last_message;
+
             public CustomViewHolder(View view) {
                 super(view);
+
+                imageView = (ImageView) view.findViewById(R.id.chatitem_imageview);
+                textView_title = (TextView) view.findViewById(R.id.chatitem_textview_title);
+                textView_last_message = (TextView) view.findViewById(R.id.chatitem_textview_lastMessage);
             }
         }
     }

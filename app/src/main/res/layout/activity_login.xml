@@ -18,7 +18,7 @@
         android:layout_height="wrap_content">
         <EditText
             android:id="@+id/loginActivity_edittext_id"
-            android:hint="아아디"
+            android:hint="아이디"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
     </android.support.design.widget.TextInputLayout>
