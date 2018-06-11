@@ -119,7 +119,7 @@ public class MessageActivity extends AppCompatActivity {
                 , gson.toJson(notificationModel));
 
         Log.d("", "destinationUserModel.pushToken=" + destinationUserModel.pushToken);
-        Log.d("", "requestBody=" + requestBody.toString());
+        Log.d("", "gson.toJson(notificationModel)=" + gson.toJson(notificationModel));
 
         Request request = new Request.Builder()
                 .header("Content-Type", "application/json")
