@@ -1,6 +1,9 @@
 package com.keultae.howltalk.fragment;
 
+import android.app.ActivityOptions;
 import android.app.Fragment;
+import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -21,16 +24,23 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.keultae.howltalk.R;
+import com.keultae.howltalk.chat.GroupMessageActivity;
+import com.keultae.howltalk.chat.MessageActivity;
 import com.keultae.howltalk.model.ChatModel;
 import com.keultae.howltalk.model.UserModel;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.TreeMap;
 
 public class ChatFragment extends Fragment {
+    private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy.MM.dd hh:mm");
+
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
@@ -45,7 +55,9 @@ public class ChatFragment extends Fragment {
 
     class ChatRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         private List<ChatModel> chatModels = new ArrayList<>();
+        private List<String> keys = new ArrayList<>();
         private String uid;
+        private ArrayList<String> destinationUsers = new ArrayList<>();
 
         public ChatRecyclerViewAdapter() {
             uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -60,6 +72,7 @@ public class ChatFragment extends Fragment {
                             for(DataSnapshot item: dataSnapshot.getChildren()) {
                                 Log.d("", "item=" + item.toString());
                                 chatModels.add(item.getValue(ChatModel.class));
+                                keys.add(item.getKey());
                             }
                             Log.d("", "chatModels.size():" + chatModels.size());
                             notifyDataSetChanged();
@@ -82,7 +95,7 @@ public class ChatFragment extends Fragment {
         }
 
         @Override
-        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, final int position) {
             final CustomViewHolder customViewHolder = (CustomViewHolder)holder;
             String destinationUid = null;
 
@@ -92,6 +105,7 @@ public class ChatFragment extends Fragment {
             for(String user: chatModels.get(position).users.keySet()) {
                 if(!user.equals(uid)) {
                     destinationUid = user;
+                    destinationUsers.add(destinationUid);
                 }
             }
             FirebaseDatabase.getInstance().getReference().child("users").child(destinationUid)
@@ -117,10 +131,39 @@ public class ChatFragment extends Fragment {
             Map<String, ChatModel.Comment> commentMap = new TreeMap<>(Collections.reverseOrder());
             Log.d("", "comments=" + chatModels.get(position).comments.toString());
             commentMap.putAll(chatModels.get(position).comments);
-            String lastMesssageKey = (String) commentMap.keySet().toArray()[0];
-            Log.d("", "lastMesssageKey=" + lastMesssageKey);
-            Log.d("", "message=" + chatModels.get(position).comments.get(lastMesssageKey).message);
-            customViewHolder.textView_last_message.setText(chatModels.get(position).comments.get(lastMesssageKey).message);
+
+            if(commentMap.keySet().toArray().length > 0) {
+                String lastMesssageKey = (String) commentMap.keySet().toArray()[0];
+                Log.d("", "lastMesssageKey=" + lastMesssageKey);
+                Log.d("", "message=" + chatModels.get(position).comments.get(lastMesssageKey).message);
+                customViewHolder.textView_last_message.setText(chatModels.get(position).comments.get(lastMesssageKey).message);
+
+                // TimeStamp
+                simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
+                long unixTime = (long) chatModels.get(position).comments.get(lastMesssageKey).timestamp;
+                Date date = new Date(unixTime);
+                customViewHolder.textView_timestamp.setText(simpleDateFormat.format(date));
+            }
+            // 단체 채팅방 3 01:42 동영상에는 아래 코드가 있는데, 따라서 입력하면 오류가 발생
+            customViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = null;
+                    if(chatModels.get(position).users.size() > 2) {
+                        intent = new Intent(v.getContext(), GroupMessageActivity.class);
+                        intent.putExtra("destinationRoom", keys.get(position));
+                    } else {
+                        intent = new Intent(v.getContext(), MessageActivity.class);
+                        intent.putExtra("destinationUid", destinationUsers.get(position));
+                    }
+
+                    ActivityOptions activityOptions = null;
+                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                        activityOptions = ActivityOptions.makeCustomAnimation(v.getContext(), R.anim.fromright, R.anim.toleft);
+                        startActivity(intent, activityOptions.toBundle());
+                    }
+                }
+            });
         }
 
         @Override
@@ -132,6 +175,7 @@ public class ChatFragment extends Fragment {
             public ImageView imageView;
             public TextView textView_title;
             public TextView textView_last_message;
+            public TextView textView_timestamp;
 
             public CustomViewHolder(View view) {
                 super(view);
@@ -139,6 +183,7 @@ public class ChatFragment extends Fragment {
                 imageView = (ImageView) view.findViewById(R.id.chatitem_imageview);
                 textView_title = (TextView) view.findViewById(R.id.chatitem_textview_title);
                 textView_last_message = (TextView) view.findViewById(R.id.chatitem_textview_lastMessage);
+                textView_timestamp = (TextView)view.findViewById(R.id.chatitem_textview_timestamp);
             }
         }
     }
