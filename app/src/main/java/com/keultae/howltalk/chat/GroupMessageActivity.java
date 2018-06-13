@@ -146,6 +146,7 @@ public class GroupMessageActivity extends AppCompatActivity {
         notificationModel.notification.text = editText.getText().toString();
         notificationModel.data.title = userName;
         notificationModel.data.text = editText.getText().toString();
+        notificationModel.data.destinationRoom = destinationRoom;
 
         RequestBody requestBody = RequestBody.create(MediaType.parse("application/json; charset=utf8")
                 , gson.toJson(notificationModel));

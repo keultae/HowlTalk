@@ -1,5 +1,6 @@
 package com.keultae.howltalk.chat;
 
+import android.content.Intent;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -72,8 +73,11 @@ public class MessageActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_message);
 
-        uid = FirebaseAuth.getInstance().getCurrentUser().getUid(); // 채팅을 요구하는 아이디
-        destinationUid = getIntent().getStringExtra("destinationUid");  // 채팅을 수락하는 아이디
+        uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        destinationUid = getIntent().getStringExtra("destinationUid");
+        Log.d("MessageActivity", "onCreate() uid="+uid);
+        Log.d("MessageActivity", "onCreate() destinationUid="+destinationUid);
+
         button = (Button)findViewById(R.id.messageActivity_button);
         editText = (EditText)findViewById(R.id.messageActivity_editText);
 
@@ -101,11 +105,14 @@ public class MessageActivity extends AppCompatActivity {
                     comment.uid = uid;
                     comment.message = editText.getText().toString();
                     comment.timestamp = ServerValue.TIMESTAMP;
+                    Log.d("MessageActivity", "setOnClickListener() 1");
                     FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments").push().setValue(comment)
                             .addOnCompleteListener(new OnCompleteListener<Void>() {
                                 @Override
                                 public void onComplete(@NonNull Task<Void> task) {
+                                    Log.d("MessageActivity", "setOnClickListener() 2");
                                     sendGcm();
+                                    Log.d("MessageActivity", "setOnClickListener() 3");
                                     editText.setText("");
                                 }
                             });
@@ -125,12 +132,16 @@ public class MessageActivity extends AppCompatActivity {
         notificationModel.notification.text = editText.getText().toString();
         notificationModel.data.title = userName;
         notificationModel.data.text = editText.getText().toString();
+//        notificationModel.data.destinationUid = destinationUserModel.uid;
+
+        // 푸시를 전송하는 기기의 UID를 보내줘야 수신하는 기기에서 상대편을 확인할 수 있다.
+        notificationModel.data.destinationUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
         RequestBody requestBody = RequestBody.create(MediaType.parse("application/json; charset=utf8")
                 , gson.toJson(notificationModel));
 
-        Log.d("", "destinationUserModel.pushToken=" + destinationUserModel.pushToken);
-        Log.d("", "gson.toJson(notificationModel)=" + gson.toJson(notificationModel));
+        Log.d("MessageActivity", "sendGcm() destinationUserModel.pushToken=" + destinationUserModel.pushToken);
+        Log.d("MessageActivity", "sendGcm() gson.toJson(notificationModel)=" + gson.toJson(notificationModel));
 
         Request request = new Request.Builder()
                 .header("Content-Type", "application/json")
@@ -188,6 +199,8 @@ public class MessageActivity extends AppCompatActivity {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                     destinationUserModel = dataSnapshot.getValue(UserModel.class);
+                    Gson gson = new Gson();
+                    Log.d("MessageActivity", "RecyclerViewAdapter.RecyclerViewAdapter() gson.toJson(notificationModel)=" + gson.toJson(destinationUserModel));
                     getMessageList();
                 }
 
@@ -350,11 +363,34 @@ public class MessageActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-//        super.onBackPressed();
+        super.onBackPressed();
+
+        Log.d("MessageActivity", "onBackPressed() valueEventListener="+valueEventListener);
+
         if(valueEventListener != null) {
             databaseReference.removeEventListener(valueEventListener);
         }
-        finish();
         overridePendingTransition(R.anim.fromleft, R.anim.toright);
+        finish();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Log.d("MessageActivity", "onNewIntent()");
+
+        uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+//        destinationUid = getIntent().getStringExtra("destinationUid");
+        destinationUid = intent.getStringExtra("destinationUid");
+        Log.d("MessageActivity", "onNewIntent() uid="+uid);
+        Log.d("MessageActivity", "onNewIntent() destinationUid="+destinationUid);
+
+        checkChatRoom();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d("MessageActivity", "onDestroy()");
     }
 }

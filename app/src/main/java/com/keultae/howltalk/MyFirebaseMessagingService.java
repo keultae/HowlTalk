@@ -15,6 +15,8 @@ import android.util.Log;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import com.keultae.howltalk.chat.GroupMessageActivity;
+import com.keultae.howltalk.chat.MessageActivity;
 import com.keultae.howltalk.model.NotificationModel;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
@@ -31,16 +33,45 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.d(TAG, "Message data payload: " + remoteMessage.getData());
             String title = remoteMessage.getData().get("title").toString();
             String text = remoteMessage.getData().get("text").toString();
-            sendNotification(title, text);
+            String destinationUid = null;
+            String destinationRoom = null;
+
+            if(remoteMessage.getData().get("destinationUid") == null) {
+                Log.d(TAG, "destinationUid is null");
+            } else {
+                destinationUid = remoteMessage.getData().get("destinationUid").toString();
+            }
+
+            if(remoteMessage.getData().get("destinationRoom") == null) {
+                Log.d(TAG, "destinationRoom is null");
+            } else {
+                destinationRoom = remoteMessage.getData().get("destinationRoom").toString();
+            }
+            sendNotification(title, text, destinationUid, destinationRoom);
         }
 
         // Also if you intend on generating your own notifications as a result of a received FCM
         // message, here is where that should be initiated. See sendNotification method below.
     }
 
-    private void sendNotification(String title, String text) {
-        Intent intent = new Intent(this, MainActivity.class);
+    private void sendNotification(String title, String text, String destinationUid, String destinationRoom) {
+        Intent intent = null;
+
+        if(destinationRoom != null) {
+            // 단체 채팅 방
+            intent = new Intent(this, GroupMessageActivity.class);
+            intent.putExtra("destinationRoom", destinationRoom);
+            Log.d(TAG, "sendNotification() destinationRoom: " + destinationRoom);
+        } else {
+            // 개인 채팅 방
+            intent = new Intent(this, MessageActivity.class);
+            intent.putExtra("destinationUid", destinationUid);
+            Log.d(TAG, "sendNotification() destinationUid: " + destinationUid);
+        }
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent,
                 PendingIntent.FLAG_ONE_SHOT);
 
