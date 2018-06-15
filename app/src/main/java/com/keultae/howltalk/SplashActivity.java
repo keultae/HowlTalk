@@ -1,12 +1,15 @@
 package com.keultae.howltalk;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -73,7 +76,17 @@ public class SplashActivity extends AppCompatActivity {
             });
             builer.create().show();
         } else {
-            startActivity(new Intent(this, LoginActivity.class));
+            Log.d("SplashActivity", "app_name=" + getResources().getString(R.string.app_name));
+            SharedPreferences sp = getSharedPreferences(getResources().getString(R.string.app_name), Context.MODE_PRIVATE);
+            String loginId = sp.getString("login_id", null);
+            Log.d("SplashActivity", "login_id=" + loginId);
+
+            // 로그 성공시 메인 페이지로 이동
+            if(loginId != null) {
+                startActivity(new Intent(this, MainActivity.class));
+            } else {
+                startActivity(new Intent(this, LoginActivity.class));
+            }
             finish();
         }
     }

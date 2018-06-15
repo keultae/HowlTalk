@@ -3,6 +3,7 @@ package com.keultae.howltalk.fragment;
 import android.app.ActivityOptions;
 import android.app.Fragment;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -80,7 +81,6 @@ public class ChatFragment extends Fragment {
 
                         @Override
                         public void onCancelled(@NonNull DatabaseError databaseError) {
-
                         }
                     });
         }
