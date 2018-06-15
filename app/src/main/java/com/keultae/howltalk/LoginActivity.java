@@ -91,7 +91,21 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     void loginEvent() {
-        firebaseAuth.signInWithEmailAndPassword(id.getText().toString(), password.getText().toString()).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+        String loginId = id.getText().toString().trim();
+        String loginPassword = password.getText().toString().trim();
+
+        if(loginId.length() == 0) {
+            Toast toast = Toast.makeText(this, "아이디를 입력하세요.", Toast.LENGTH_LONG);
+            toast.show();
+            return;
+        }
+        if(loginPassword.length() == 0) {
+            Toast toast = Toast.makeText(this, "패스워드를 입력하세요.", Toast.LENGTH_LONG);
+            toast.show();
+            return;
+        }
+
+        firebaseAuth.signInWithEmailAndPassword(loginId, loginPassword).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
                 if(!task.isSuccessful()) {
