@@ -5,6 +5,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -20,28 +21,31 @@ import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
 
 public class SplashActivity extends AppCompatActivity {
+    private final String TAG = "SplashActivity";
     private LinearLayout linearLayout;
-    private FirebaseRemoteConfig mFirebaseRemoteConfig;
+    private FirebaseRemoteConfig firebaseRemoteConfig;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
+        // 안테나 창 보이지 않도록 설정
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         linearLayout = (LinearLayout)findViewById(R.id.splashactivity_linearlayout);
 
-        mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
+        firebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
         FirebaseRemoteConfigSettings configSettings = new FirebaseRemoteConfigSettings.Builder()
                 .setDeveloperModeEnabled(BuildConfig.DEBUG)
                 .build();
-        mFirebaseRemoteConfig.setConfigSettings(configSettings);
-        mFirebaseRemoteConfig.setDefaults(R.xml.default_config);
+        firebaseRemoteConfig.setConfigSettings(configSettings);
+        firebaseRemoteConfig.setDefaults(R.xml.default_config);
 
         // cacheExpirationSeconds is set to cacheExpiration here, indicating the next fetch request
         // will use fetch data from the Remote Config service, rather than cached parameter values,
         // if cached parameter values are more than cacheExpiration seconds old.
         // See Best Practices in the README for more information.
-        mFirebaseRemoteConfig.fetch(0)
+        firebaseRemoteConfig.fetch(0)
                 .addOnCompleteListener(this, new OnCompleteListener<Void>() {
                     @Override
                     public void onComplete(@NonNull Task<Void> task) {
@@ -50,10 +54,9 @@ public class SplashActivity extends AppCompatActivity {
 
                             // After config data is successfully fetched, it must be activated before newly fetched
                             // values are returned.
-                            mFirebaseRemoteConfig.activateFetched();
+                            firebaseRemoteConfig.activateFetched();
                         } else {
-                            Toast.makeText(SplashActivity.this, "Fetch Failed",
-                                    Toast.LENGTH_SHORT).show();
+                            Toast.makeText(SplashActivity.this, "Fetch Failed", Toast.LENGTH_SHORT).show();
                         }
                         displayMessage();
                     }
@@ -61,9 +64,9 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     void displayMessage() {
-        String splash_background = mFirebaseRemoteConfig.getString("splash_background");
-        boolean caps = mFirebaseRemoteConfig.getBoolean("splash_message_caps");
-        String splash_message = mFirebaseRemoteConfig.getString("splash_message");
+        String splash_background = firebaseRemoteConfig.getString("splash_background");
+        boolean caps = firebaseRemoteConfig.getBoolean("splash_message_caps");
+        String splash_message = firebaseRemoteConfig.getString("splash_message");
 
         linearLayout.setBackgroundColor(Color.parseColor(splash_background));
         if(caps) {
@@ -76,18 +79,26 @@ public class SplashActivity extends AppCompatActivity {
             });
             builer.create().show();
         } else {
-            Log.d("SplashActivity", "app_name=" + getResources().getString(R.string.app_name));
-            SharedPreferences sp = getSharedPreferences(getResources().getString(R.string.app_name), Context.MODE_PRIVATE);
-            String loginId = sp.getString("login_id", null);
-            Log.d("SplashActivity", "login_id=" + loginId);
+            Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    // res/values/strings.xml 값 가져옴
+                    String appName = getResources().getString(R.string.app_name);
+                    SharedPreferences sp = getSharedPreferences(appName, Context.MODE_PRIVATE);
+                    String loginId = sp.getString("login_id", null);
+                    Log.d(TAG, "login_id=" + loginId);
 
-            // 로그 성공시 메인 페이지로 이동
-            if(loginId != null) {
-                startActivity(new Intent(this, MainActivity.class));
-            } else {
-                startActivity(new Intent(this, LoginActivity.class));
-            }
-            finish();
+                    // 로그 성공시 메인 페이지로 이동
+                    if(loginId != null) {
+                        startActivity(new Intent(getBaseContext(), MainActivity.class));
+                    } else {
+                        startActivity(new Intent(getBaseContext(), LoginActivity.class));
+                    }
+                    finish();
+
+                }
+            }, 2000);
         }
     }
 }
