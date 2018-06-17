@@ -1,6 +1,5 @@
 package com.keultae.howltalk;
 
-import android.content.SharedPreferences;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
 import android.support.v7.app.AppCompatActivity;
@@ -47,10 +46,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        passPushTokenToServer();
+        updatePushTokenToServer();
     }
 
-    void passPushTokenToServer() {
+    void updatePushTokenToServer() {
         String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
         String token = FirebaseInstanceId.getInstance().getToken();
 
