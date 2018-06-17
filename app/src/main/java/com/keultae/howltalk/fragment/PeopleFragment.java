@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PeopleFragment extends Fragment{
+    private final String TAG = "PeopleFragment";
+
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
@@ -61,9 +63,10 @@ public class PeopleFragment extends Fragment{
                 @Override
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                     userModels.clear();
+
                     for(DataSnapshot snapshot: dataSnapshot.getChildren()) {
-                        Log.d("PeopleFragment", "snapshot=" + snapshot.toString());
                         UserModel userModel = snapshot.getValue(UserModel.class);
+                        Log.d(TAG, "PeopleFragmentRecyclerViewAdapter() > userModel=" + userModel.toString());
 
                         if(userModel.uid.equals(myUid)) {
                             continue;
@@ -83,6 +86,7 @@ public class PeopleFragment extends Fragment{
         @NonNull
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            Log.d(TAG, "onCreateViewHolder() > viewType=" + viewType);
             View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_friend, parent, false);
 
             return new CustomViewHolder(view);
@@ -90,13 +94,21 @@ public class PeopleFragment extends Fragment{
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, final int position) {
+            Log.d(TAG, "onBindViewHolder() > position=" + position);
+            CustomViewHolder customViewHolder = (CustomViewHolder)holder;
+
+            // URL의 이미지를 View에 지정
             Glide.with
                     (holder.itemView.getContext())
                     .load(userModels.get(position).profileImageUrl)
                     .apply(new RequestOptions().circleCrop())
-                    .into(((CustomViewHolder)holder).imageView);
+                    .into(customViewHolder.imageView);
 
-            ((CustomViewHolder)holder).textView.setText(userModels.get(position).userName);
+            customViewHolder.textView.setText(userModels.get(position).userName);
+
+            if(userModels.get(position).comment != null) {
+                customViewHolder.textView_comment.setText(userModels.get(position).comment);
+            }
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -111,14 +123,11 @@ public class PeopleFragment extends Fragment{
                     }
                 }
             });
-
-            if(userModels.get(position).comment != null) {
-                ((CustomViewHolder)holder).textView_comment.setText(userModels.get(position).comment);
-            }
         }
 
         @Override
         public int getItemCount() {
+            Log.d(TAG, "getItemCount() > userModels.size()=" + userModels.size());
             return userModels.size();
         }
 
@@ -129,6 +138,7 @@ public class PeopleFragment extends Fragment{
 
             public CustomViewHolder(View itemView) {
                 super(itemView);
+
                 imageView = (ImageView)itemView.findViewById(R.id.frienditem_imageview);
                 textView = (TextView) itemView.findViewById(R.id.frienditem_textview);
                 textView_comment = (TextView) itemView.findViewById(R.id.frienditem_textview_comment);

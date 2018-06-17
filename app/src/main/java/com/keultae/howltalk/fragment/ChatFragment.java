@@ -40,16 +40,20 @@ import java.util.TimeZone;
 import java.util.TreeMap;
 
 public class ChatFragment extends Fragment {
-    private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy.MM.dd hh:mm");
+    private final String TAG = "ChatFragment";
+    private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm");
+    private ChatRecyclerViewAdapter chatRecyclerViewAdapter;
 
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView()");
         View view = inflater.inflate(R.layout.fragment_chat, container, false);
 
         RecyclerView recyclerView = (RecyclerView) view.findViewById(R.id.chatfragment_recyclerview);
-        recyclerView.setAdapter(new ChatRecyclerViewAdapter());
         recyclerView.setLayoutManager(new LinearLayoutManager(inflater.getContext()));
+        chatRecyclerViewAdapter = new ChatRecyclerViewAdapter();
+        recyclerView.setAdapter(chatRecyclerViewAdapter);
 
         return view;
     }
@@ -63,19 +67,54 @@ public class ChatFragment extends Fragment {
         public ChatRecyclerViewAdapter() {
             uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-            Log.d("", "uid=" + uid);
+            Log.d(TAG, "ChatRecyclerViewAdapter() > uid=" + uid);
 
-            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
+            /*
+//            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
+            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("order")
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                             chatModels.clear();
                             for(DataSnapshot item: dataSnapshot.getChildren()) {
-                                Log.d("", "item=" + item.toString());
-                                chatModels.add(item.getValue(ChatModel.class));
-                                keys.add(item.getKey());
+                                ChatModel chatModel = item.getValue(ChatModel.class);
+                                Log.d(TAG, "ChatRecyclerViewAdapter() > chatModel=" + chatModel.toString());
+                                Log.d(TAG, "ChatRecyclerViewAdapter() > item.getKey()=" + item.getKey());
+
+                                // 본인이 포함된 채팅방만 보여줌
+//                                if(chatModel.users.get(uid) != null) {
+                                    chatModels.add(chatModel);
+                                    keys.add(item.getKey());
+//                                }
                             }
-                            Log.d("", "chatModels.size():" + chatModels.size());
+                            notifyDataSetChanged();
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError databaseError) {
+                        }
+                    });
+                    */
+//            refrech();
+        }
+
+        public void refrech() {
+            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("order")
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                            chatModels.clear();
+                            for(DataSnapshot item: dataSnapshot.getChildren()) {
+                                ChatModel chatModel = item.getValue(ChatModel.class);
+                                Log.d(TAG, "ChatRecyclerViewAdapter() > chatModel=" + chatModel.toString());
+                                Log.d(TAG, "ChatRecyclerViewAdapter() > item.getKey()=" + item.getKey());
+
+                                // 본인이 포함된 채팅방만 보여줌
+                                if(chatModel.users.get(uid) != null) {
+                                    chatModels.add(chatModel);
+                                    keys.add(item.getKey());
+                                }
+                            }
                             notifyDataSetChanged();
                         }
 
@@ -99,7 +138,7 @@ public class ChatFragment extends Fragment {
             final CustomViewHolder customViewHolder = (CustomViewHolder)holder;
             String destinationUid = null;
 
-            Log.d("onBindViewHolder()", "position=" + position);
+            Log.d(TAG, "onBindViewHolder() > position=" + position);
 
             // 챗방에 있는 유저를 모두 체크
             for(String user: chatModels.get(position).users.keySet()) {
@@ -129,18 +168,20 @@ public class ChatFragment extends Fragment {
 
             // 메시지를 내림 차순으로 정렬 후 마지막 메시지의 키 값을 가져옴
             Map<String, ChatModel.Comment> commentMap = new TreeMap<>(Collections.reverseOrder());
-            Log.d("", "comments=" + chatModels.get(position).comments.toString());
+            Log.d(TAG, "onBindViewHolder() > comments=" + chatModels.get(position).comments.toString());
             commentMap.putAll(chatModels.get(position).comments);
 
             if(commentMap.keySet().toArray().length > 0) {
                 String lastMesssageKey = (String) commentMap.keySet().toArray()[0];
-                Log.d("", "lastMesssageKey=" + lastMesssageKey);
-                Log.d("", "message=" + chatModels.get(position).comments.get(lastMesssageKey).message);
+                Log.d(TAG, "onBindViewHolder() > lastMesssageKey=" + lastMesssageKey);
+                Log.d(TAG, "onBindViewHolder() > message=" + chatModels.get(position).comments.get(lastMesssageKey).message);
                 customViewHolder.textView_last_message.setText(chatModels.get(position).comments.get(lastMesssageKey).message);
 
                 // TimeStamp
                 simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
-                long unixTime = (long) chatModels.get(position).comments.get(lastMesssageKey).timestamp;
+//                long unixTime = (long) chatModels.get(position).comments.get(lastMesssageKey).timestamp;
+                // 1529112081051, 1529200078125, 1529223003360
+                long unixTime = chatModels.get(position).timestamp;
                 Date date = new Date(unixTime);
                 customViewHolder.textView_timestamp.setText(simpleDateFormat.format(date));
             }
@@ -149,13 +190,16 @@ public class ChatFragment extends Fragment {
                 @Override
                 public void onClick(View v) {
                     Intent intent = null;
-                    if(chatModels.get(position).users.size() > 2) {
-                        intent = new Intent(v.getContext(), GroupMessageActivity.class);
-                        intent.putExtra("destinationRoom", keys.get(position));
-                    } else {
-                        intent = new Intent(v.getContext(), MessageActivity.class);
-                        intent.putExtra("destinationUid", destinationUsers.get(position));
-                    }
+//                    if(chatModels.get(position).users.size() > 2) {
+//                        intent = new Intent(v.getContext(), GroupMessageActivity.class);
+//                        intent.putExtra("destinationRoom", keys.get(position));
+//                    } else {
+//                        intent = new Intent(v.getContext(), MessageActivity.class);
+//                        intent.putExtra("destinationUid", destinationUsers.get(position));
+//                    }
+
+                    intent = new Intent(v.getContext(), GroupMessageActivity.class);
+                    intent.putExtra("destinationRoom", keys.get(position));
 
                     ActivityOptions activityOptions = null;
                     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -186,5 +230,31 @@ public class ChatFragment extends Fragment {
                 textView_timestamp = (TextView)view.findViewById(R.id.chatitem_textview_timestamp);
             }
         }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Log.d(TAG, "onStart()");
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "onResume()");
+
+        chatRecyclerViewAdapter.refrech();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        Log.d(TAG, "onPause()");
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        Log.d(TAG, "onStop()");
     }
 }

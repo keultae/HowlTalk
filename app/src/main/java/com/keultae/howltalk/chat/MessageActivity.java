@@ -116,6 +116,10 @@ public class MessageActivity extends AppCompatActivity {
                                     editText.setText("");
                                 }
                             });
+
+                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("timestamp").setValue(System.currentTimeMillis());
+                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("order").setValue(Long.MAX_VALUE - System.currentTimeMillis());
+
                 }
             }
         });

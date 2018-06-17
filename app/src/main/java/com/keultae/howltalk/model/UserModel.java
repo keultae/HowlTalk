@@ -6,4 +6,15 @@ public class UserModel {
     public String uid;
     public String pushToken;
     public String comment;
+
+    @Override
+    public String toString() {
+        return "UserModel{" +
+                "userName='" + userName + '\'' +
+                ", profileImageUrl='" + profileImageUrl + '\'' +
+                ", uid='" + uid + '\'' +
+                ", pushToken='" + pushToken + '\'' +
+                ", comment='" + comment + '\'' +
+                '}';
+    }
 }
