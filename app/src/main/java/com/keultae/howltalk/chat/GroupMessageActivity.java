@@ -51,6 +51,8 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class GroupMessageActivity extends AppCompatActivity {
+    private final String TAG = "GroupMessageActivity";
+
     Map<String, UserModel> users = new HashMap<>();
     String destinationRoom;
     String uid;
@@ -72,6 +74,7 @@ public class GroupMessageActivity extends AppCompatActivity {
         destinationRoom = getIntent().getStringExtra("destinationRoom");
         uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
         editText = (EditText)findViewById(R.id.groupMessageActivity_editText);
+        Log.d(TAG, "onCreate() uid=" + uid + ", destinationRoom=" + destinationRoom);
 
         FirebaseDatabase.getInstance().getReference().child("users")
                 .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -79,6 +82,7 @@ public class GroupMessageActivity extends AppCompatActivity {
                     public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                         for(DataSnapshot item: dataSnapshot.getChildren()) {
                             users.put(item.getKey(), item.getValue(UserModel.class));
+                            Log.d(TAG, "onCreate() item.getKey()=" + item.getKey() + ", item.getValue(UserModel.class)=" + item.getValue(UserModel.class).toString());
                         }
                         init();
                         recyclerView = findViewById(R.id.groupMessageActivity_recyclerView);
@@ -108,7 +112,6 @@ public class GroupMessageActivity extends AppCompatActivity {
                         .child("comments").push().setValue(comment).addOnCompleteListener(new OnCompleteListener<Void>() {
                     @Override
                     public void onComplete(@NonNull Task<Void> task) {
-
                         FirebaseDatabase.getInstance().getReference().child("chatrooms")
                                 .child(destinationRoom).child("users").addListenerForSingleValueEvent(new ValueEventListener() {
                             @Override
@@ -129,6 +132,8 @@ public class GroupMessageActivity extends AppCompatActivity {
 
                             }
                         });
+                        FirebaseDatabase.getInstance().getReference().child("chatrooms").child(destinationRoom).child("timestamp").setValue(System.currentTimeMillis());
+                        FirebaseDatabase.getInstance().getReference().child("chatrooms").child(destinationRoom).child("order").setValue(Long.MAX_VALUE - System.currentTimeMillis());
                     }
                 });
             }
@@ -151,8 +156,8 @@ public class GroupMessageActivity extends AppCompatActivity {
         RequestBody requestBody = RequestBody.create(MediaType.parse("application/json; charset=utf8")
                 , gson.toJson(notificationModel));
 
-        Log.d("", "destinationUserModel.pushToken=" + pushToken);
-        Log.d("", "gson.toJson(notificationModel)=" + gson.toJson(notificationModel));
+        Log.d(TAG, "sendGcm() > destinationUserModel.pushToken=" + pushToken);
+        Log.d(TAG, "sendGcm() > gson.toJson(notificationModel)=" + gson.toJson(notificationModel));
 
         Request request = new Request.Builder()
                 .header("Content-Type", "application/json")
@@ -165,12 +170,12 @@ public class GroupMessageActivity extends AppCompatActivity {
         okHttpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-
+                Log.d(TAG, "sendGcm() > newCall() > onFailure()" + e.toString());
             }
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
-
+                Log.d(TAG, "sendGcm() > newCall() > onResponse()");
             }
         });
 
@@ -183,7 +188,7 @@ public class GroupMessageActivity extends AppCompatActivity {
         }
 
         void getMessageList() {
-            Log.d("GroupMessageActivity", "destinationRoom=" + destinationRoom);
+            Log.d(TAG, "getMessageList() > destinationRoom=" + destinationRoom);
             databaseReference =  FirebaseDatabase.getInstance().getReference().child("chatrooms").child(destinationRoom).child("comments");
             valueEventListener =  databaseReference.addValueEventListener(new ValueEventListener() {
                 @Override

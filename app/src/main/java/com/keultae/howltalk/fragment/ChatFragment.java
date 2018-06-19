@@ -179,7 +179,11 @@ public class ChatFragment extends Fragment {
                                     .apply(new RequestOptions().circleCrop())
                                     .into(customViewHolder.imageView);
 
-                            customViewHolder.textView_title.setText(userModel.userName);
+                            String title = userModel.userName;
+                            if(chatModels.get(position).users.size() > 2) {
+                                title += " (" + chatModels.get(position).users.size() + "명)";
+                            }
+                            customViewHolder.textView_title.setText(title);
                         }
 
                         @Override
