@@ -113,6 +113,8 @@ public class ChatFragment extends Fragment {
                             chatModels.clear();
                             for(DataSnapshot item: dataSnapshot.getChildren()) {
                                 ChatModel chatModel = item.getValue(ChatModel.class);
+                                chatModel.pushId = item.getKey();
+
                                 Log.d(TAG, "ChatRecyclerViewAdapter() > chatModel=" + chatModel.toString());
                                 Log.d(TAG, "ChatRecyclerViewAdapter() > item.getKey()=" + item.getKey());
 
@@ -225,7 +227,8 @@ public class ChatFragment extends Fragment {
 //                    }
 
                     intent = new Intent(v.getContext(), GroupMessageActivity.class);
-                    intent.putExtra("destinationRoom", keys.get(position));
+//                    intent.putExtra("destinationRoom", keys.get(position));
+                    intent.putExtra("destinationRoom", chatModels.get(position).pushId);
 
                     ActivityOptions activityOptions = null;
                     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
