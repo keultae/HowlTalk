@@ -54,6 +54,8 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class MessageActivity extends AppCompatActivity {
+    private final String TAG = "MessageActivity";
+
     private String destinationUid;
     private Button button;
     private EditText editText;
@@ -83,6 +85,15 @@ public class MessageActivity extends AppCompatActivity {
 
         recyclerView = (RecyclerView)findViewById(R.id.messageActivity_recyclerView);
 
+        editText.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "editText > onClick()");
+                // 맨 마지막으로 이동
+//                recyclerView.scrollToPosition(comments.size() - 1);
+            }
+        });
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
