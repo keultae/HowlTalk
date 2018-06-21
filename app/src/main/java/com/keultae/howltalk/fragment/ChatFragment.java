@@ -33,6 +33,7 @@ import com.keultae.howltalk.model.UserModel;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -99,13 +100,21 @@ public class ChatFragment extends Fragment {
         }
 
         public void refrech() {
-            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("order")
+//            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("order")
+//            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByKey()
+//            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByValue() // orderByKey()와 결과 동일
+            // 모든 값이 검색됨, uid가 null 값이 가장 앞에 나오고 uid 값이 true이면 키 순서로 정렬
+//            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
+            // uid 키의 값이 모두 true이므로 uid가 있는 값만 검색됨
+            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid).equalTo(true)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                             chatModels.clear();
                             for(DataSnapshot item: dataSnapshot.getChildren()) {
                                 ChatModel chatModel = item.getValue(ChatModel.class);
+                                chatModel.pushId = item.getKey();
+
                                 Log.d(TAG, "ChatRecyclerViewAdapter() > chatModel=" + chatModel.toString());
                                 Log.d(TAG, "ChatRecyclerViewAdapter() > item.getKey()=" + item.getKey());
 
@@ -115,6 +124,12 @@ public class ChatFragment extends Fragment {
                                     keys.add(item.getKey());
                                 }
                             }
+
+                            // 첫번째와 마지막 값을 바꿈
+//                            ChatModel cm = chatModels.get(0);
+//                            chatModels.set(0, chatModels.get(chatModels.size()-1));
+//                            chatModels.set(chatModels.size()-1, cm);
+                            Collections.sort(chatModels, new Descending());
                             notifyDataSetChanged();
                         }
 
@@ -122,6 +137,15 @@ public class ChatFragment extends Fragment {
                         public void onCancelled(@NonNull DatabaseError databaseError) {
                         }
                     });
+        }
+
+        class Descending implements Comparator<ChatModel> {
+
+            @Override
+            public int compare(ChatModel chatModel, ChatModel t1) {
+                return (int) (chatModel.order - t1.order);    // 내림차순
+//                return (int) (t1.order - chatModel.order);  // 오름차순
+            }
         }
 
         @NonNull
@@ -203,7 +227,8 @@ public class ChatFragment extends Fragment {
 //                    }
 
                     intent = new Intent(v.getContext(), GroupMessageActivity.class);
-                    intent.putExtra("destinationRoom", keys.get(position));
+//                    intent.putExtra("destinationRoom", keys.get(position));
+                    intent.putExtra("destinationRoom", chatModels.get(position).pushId);
 
                     ActivityOptions activityOptions = null;
                     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
