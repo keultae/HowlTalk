@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
@@ -17,6 +18,7 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -100,6 +102,29 @@ public class MessageActivity extends AppCompatActivity {
         InputMethodManager controlManager = (InputMethodManager)getSystemService(Service.INPUT_METHOD_SERVICE);
         softKeyboard = new SoftKeyboard(relativeLayout, controlManager);
 
+        final boolean[] keyboardShow = {false};
+
+        relativeLayout.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                Rect r = new Rect();
+                relativeLayout.getWindowVisibleDisplayFrame(r);
+                int heightDiff = recyclerView.getRootView().getHeight() - (r.bottom - r.top);
+                Log.d(TAG, "rect=" + r.toString() + ", recyclerView.getRootView().getHeight()=" + recyclerView.getRootView().getHeight());
+                Log.d(TAG, "heightDiff=" + heightDiff);
+                if(heightDiff > 252) {
+                    if(!keyboardShow[0]) {
+                        Log.d(TAG, "키보드 보임");
+                        recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+                        keyboardShow[0] = true;
+                    }
+                } else {
+                    Log.d(TAG, "키보드 숨김");
+                    keyboardShow[0] = false;
+                }
+            }
+        });
+
         softKeyboard.setSoftKeyboardCallback(new SoftKeyboard.SoftKeyboardChanged()
         {
             @Override
@@ -137,7 +162,7 @@ public class MessageActivity extends AppCompatActivity {
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+//                                recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
 //                                recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
                             }
                         }, 300);
