@@ -1,6 +1,11 @@
 package com.keultae.howltalk.chat;
 
+import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -12,10 +17,12 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
@@ -31,6 +38,8 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
+import com.keultae.howltalk.LoginActivity;
+import com.keultae.howltalk.MainActivity;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.model.ChatModel;
 import com.keultae.howltalk.model.NotificationModel;
@@ -68,7 +77,8 @@ public class MessageActivity extends AppCompatActivity {
     private DatabaseReference databaseReference;
     private ValueEventListener valueEventListener;
     int peopleCount = 0;
-
+    private SoftKeyboard softKeyboard;
+    private RelativeLayout relativeLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,16 +94,58 @@ public class MessageActivity extends AppCompatActivity {
         editText = (EditText)findViewById(R.id.messageActivity_editText);
 
         recyclerView = (RecyclerView)findViewById(R.id.messageActivity_recyclerView);
+        Log.d(TAG, "init recyclerView.getHeight()=" + recyclerView.getHeight());
 
-        editText.setOnClickListener(new View.OnClickListener() {
+        relativeLayout = (RelativeLayout) findViewById(R.id.messageActivity);
+        InputMethodManager controlManager = (InputMethodManager)getSystemService(Service.INPUT_METHOD_SERVICE);
+        softKeyboard = new SoftKeyboard(relativeLayout, controlManager);
+
+        softKeyboard.setSoftKeyboardCallback(new SoftKeyboard.SoftKeyboardChanged()
+        {
+            @Override
+            public void onSoftKeyboardHide()
+            {
+                new Handler(Looper.getMainLooper()).post(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        Log.d(TAG, "키보드 내려왔을때, recyclerView.getHeight()=" + recyclerView.getHeight());
+                        Log.d(TAG, "editText.getTop()="+editText.getTop());
+                        // 딜레이를 주지 않아도 스크롤이 이동되고 스크롤을 이동하는 메소드를 호출하지 않아도 스크롤이 끝에 위치해 있음.
+//                        recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+                    }
+                });
+            }
 
             @Override
-            public void onClick(View v) {
-                Log.d(TAG, "editText > onClick()");
-                // 맨 마지막으로 이동
-//                recyclerView.scrollToPosition(comments.size() - 1);
+            public void onSoftKeyboardShow()
+            {
+                new Handler(Looper.getMainLooper()).post(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        Log.d(TAG, "키보드 올라왔을때, recyclerView.getHeight()=" + recyclerView.getHeight());
+                        Log.d(TAG, "editText.getTop()="+editText.getTop());
+
+                        // 딜레이를 주지 않으면 스크롤이 끝으로 이동되지 않음.
+                        // 100 일때, 아이맥 에뮬레이터에서는 되는데, A5 스마트폰에서는 안됨
+                        // 200, 250 일때, 아이맥 에뮬레이터에서는 되는데, A5 스마트폰에서는 되다가 가끔 안됨
+                        // 300 일때, 아이맥 에뮬레이터에서는 되는데, A5 스마트폰에서는 되다가 아주 가끔 안됨, 키보드가 올라가고 메시지가 약간 텀을 두고 끝으로 이동
+                        Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+//                                recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+                            }
+                        }, 300);
+                    }
+                });
             }
         });
+
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -190,7 +242,11 @@ public class MessageActivity extends AppCompatActivity {
                     if(chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
                         chatRoomUid = item.getKey();    // 방 ID
                         button.setEnabled(true);
-                        recyclerView.setLayoutManager(new LinearLayoutManager(MessageActivity.this));
+                        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(MessageActivity.this);
+//                        linearLayoutManager.setStackFromEnd(true);
+//                        linearLayoutManager.setReverseLayout(true);
+                        recyclerView.setLayoutManager(linearLayoutManager);
+
                         recyclerView.setAdapter(new RecyclerViewAdapter());
                     }
                 }
@@ -203,9 +259,9 @@ public class MessageActivity extends AppCompatActivity {
         });
     }
 
+
     class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         List<ChatModel.Comment> comments;
-
 
         public RecyclerViewAdapter() {
             comments = new ArrayList<>();
@@ -224,6 +280,7 @@ public class MessageActivity extends AppCompatActivity {
 
                 }
             });
+
         }
 
         void getMessageList() {
@@ -407,5 +464,7 @@ public class MessageActivity extends AppCompatActivity {
     public void onDestroy() {
         super.onDestroy();
         Log.d("MessageActivity", "onDestroy()");
+
+        softKeyboard.unRegisterSoftKeyboardCallback();
     }
 }

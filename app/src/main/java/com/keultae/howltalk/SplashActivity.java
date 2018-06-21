@@ -68,7 +68,8 @@ public class SplashActivity extends AppCompatActivity {
         boolean caps = firebaseRemoteConfig.getBoolean("splash_message_caps");
         String splash_message = firebaseRemoteConfig.getString("splash_message");
 
-        linearLayout.setBackgroundColor(Color.parseColor(splash_background));
+//        linearLayout.setBackgroundColor(Color.parseColor(splash_background));
+
         if(caps) {
             AlertDialog.Builder builer = new AlertDialog.Builder(this);
             builer.setMessage(splash_message).setPositiveButton("확인", new DialogInterface.OnClickListener() {
@@ -98,7 +99,7 @@ public class SplashActivity extends AppCompatActivity {
                     finish();
 
                 }
-            }, 2000);
+            }, 1000);
         }
     }
 }
