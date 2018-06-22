@@ -16,13 +16,23 @@ public class ChatModel
         public String message;
         public Object timestamp;
         public Map<String, Object> readUsers = new HashMap<>();
+
+        @Override
+        public String toString() {
+            return "Comment{" +
+                    "uid='" + uid + '\'' +
+                    ", message='" + message + '\'' +
+                    ", timestamp=" + timestamp +
+                    ", readUsers.size()=" + readUsers.size() +
+                    '}';
+        }
     }
 
     @Override
     public String toString() {
         return "ChatModel{" +
-                "users=" + users +
-                ", comments=" + comments +
+                "users=" + users.toString() +
+                ", comments=" + comments.toString() +
                 '}';
     }
 }
