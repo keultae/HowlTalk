@@ -22,6 +22,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 
 public class LoginActivity extends AppCompatActivity {
+    private final String TAG = "LoginActivity";
     private EditText id;
     private EditText password;
 
@@ -34,6 +35,9 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Log.d(TAG, "onCreate()");
+
         setContentView(R.layout.activity_login);
         firebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
         String splash_background = firebaseRemoteConfig.getString(getString(R.string.rc_color));
@@ -72,25 +76,30 @@ public class LoginActivity extends AppCompatActivity {
             public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
                 FirebaseUser user = firebaseAuth.getCurrentUser();
 
+                Log.d(TAG, "onAuthStateChanged() > user=" + user.toString());
+
+                /*
                 // 로그인
                 if(user != null) {
                     SharedPreferences sp = getSharedPreferences(getResources().getString(R.string.app_name), Context.MODE_PRIVATE);
                     SharedPreferences.Editor editor = sp.edit();
                     editor.putString("login_id", id.getText().toString());
-                    Log.d("LoginActivity", "login_id=" + id.getText().toString());
+                    Log.d(TAG, "onAuthStateChanged() > login_id=" + id.getText().toString());
                     editor.commit();
 
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);
                     finish();
                 } else { // 로그아웃
-
+                    Log.d(TAG, "onAuthStateChanged() > 로그아웃");
                 }
+                */
             }
         };
     }
 
     void loginEvent() {
+        Log.d(TAG, "loginEvent()");
         String loginId = id.getText().toString().trim();
         String loginPassword = password.getText().toString().trim();
 
@@ -108,7 +117,20 @@ public class LoginActivity extends AppCompatActivity {
         firebaseAuth.signInWithEmailAndPassword(loginId, loginPassword).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
-                if(!task.isSuccessful()) {
+                if(task.isSuccessful()) {
+                    Log.d(TAG, "로그인 성공");
+                    SharedPreferences sp = getSharedPreferences(getResources().getString(R.string.app_name), Context.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sp.edit();
+                    editor.putString("uid", FirebaseAuth.getInstance().getCurrentUser().getUid());
+                    editor.putString("login_id", id.getText().toString());
+                    editor.putString("login_pw", password.getText().toString());
+                    editor.commit();
+
+                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                    startActivity(intent);
+                    finish();
+                } else {
+                    Log.d(TAG, "로그인 실패");
                     // 로그인 실패한 부분
                     Toast.makeText(LoginActivity.this, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                 }
@@ -119,12 +141,16 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        firebaseAuth.addAuthStateListener(authStateListener);
+        Log.d(TAG, "onStart()");
+
+//        firebaseAuth.addAuthStateListener(authStateListener);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        Log.d(TAG, "onStop()");
+
         firebaseAuth.removeAuthStateListener(authStateListener);
     }
 }

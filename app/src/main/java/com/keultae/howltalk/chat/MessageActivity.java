@@ -56,6 +56,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 
 import okhttp3.Call;
@@ -98,8 +99,6 @@ public class MessageActivity extends AppCompatActivity {
         editText = (EditText)findViewById(R.id.messageActivity_editText);
         recyclerView = (RecyclerView)findViewById(R.id.messageActivity_recyclerView);
         relativeLayout = (RelativeLayout) findViewById(R.id.messageActivity);
-//        InputMethodManager controlManager = (InputMethodManager)getSystemService(Service.INPUT_METHOD_SERVICE);
-//        softKeyboard = new SoftKeyboard(relativeLayout, controlManager);
 
         // keyboard가 보이면 채팅 메시지 마지막이 보이도록 지정
         final boolean[] keyboardShow = {false};
@@ -113,7 +112,10 @@ public class MessageActivity extends AppCompatActivity {
                 if(heightDiff > 252) {
                     if(!keyboardShow[0]) {
                         Log.d(TAG, "키보드 보임");
-                        recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+                        // 메시지가 없을때는 건너뜀
+                        if(recyclerView.getAdapter() != null && recyclerView.getAdapter().getItemCount() > 0) {
+                            recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
+                        }
                         keyboardShow[0] = true;
                     }
                 } else {
@@ -122,54 +124,6 @@ public class MessageActivity extends AppCompatActivity {
                 }
             }
         });
-
-        /*
-        softKeyboard.setSoftKeyboardCallback(new SoftKeyboard.SoftKeyboardChanged()
-        {
-            @Override
-            public void onSoftKeyboardHide()
-            {
-                new Handler(Looper.getMainLooper()).post(new Runnable()
-                {
-                    @Override
-                    public void run()
-                    {
-                        Log.d(TAG, "키보드 내려왔을때, recyclerView.getHeight()=" + recyclerView.getHeight());
-                        Log.d(TAG, "editText.getTop()="+editText.getTop());
-                        // 딜레이를 주지 않아도 스크롤이 이동되고 스크롤을 이동하는 메소드를 호출하지 않아도 스크롤이 끝에 위치해 있음.
-//                        recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
-                    }
-                });
-            }
-
-            @Override
-            public void onSoftKeyboardShow()
-            {
-                new Handler(Looper.getMainLooper()).post(new Runnable()
-                {
-                    @Override
-                    public void run()
-                    {
-                        Log.d(TAG, "키보드 올라왔을때, recyclerView.getHeight()=" + recyclerView.getHeight());
-                        Log.d(TAG, "editText.getTop()="+editText.getTop());
-
-                        // 딜레이를 주지 않으면 스크롤이 끝으로 이동되지 않음.
-                        // 100 일때, 아이맥 에뮬레이터에서는 되는데, A5 스마트폰에서는 안됨
-                        // 200, 250 일때, 아이맥 에뮬레이터에서는 되는데, A5 스마트폰에서는 되다가 가끔 안됨
-                        // 300 일때, 아이맥 에뮬레이터에서는 되는데, A5 스마트폰에서는 되다가 아주 가끔 안됨, 키보드가 올라가고 메시지가 약간 텀을 두고 끝으로 이동
-                        Handler handler = new Handler();
-                        handler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-//                                recyclerView.scrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
-//                                recyclerView.smoothScrollToPosition(recyclerView.getAdapter().getItemCount() - 1);
-                            }
-                        }, 300);
-                    }
-                });
-            }
-        });
-        */
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -193,9 +147,14 @@ public class MessageActivity extends AppCompatActivity {
                     });
                 } else {
                     ChatModel.Comment comment = new ChatModel.Comment();
+
                     comment.uid = uid;
                     comment.message = editText.getText().toString();
                     comment.timestamp = ServerValue.TIMESTAMP;
+                    //
+//                    comment.readUsers.put(uid, true);
+                    comment.readUsers.put(destinationUid, false);
+
                     FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments").push().setValue(comment)
                             .addOnCompleteListener(new OnCompleteListener<Void>() {
                                 @Override
@@ -209,6 +168,7 @@ public class MessageActivity extends AppCompatActivity {
                 }
             }
         });
+
         checkChatRoom();
     }
 
@@ -222,12 +182,16 @@ public class MessageActivity extends AppCompatActivity {
                 .equalTo(true).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                // 조건에 맞는 검색 결과가 없으면 dataSnapshot.getChildrenCount()가 0 이 됨
+                Log.d(TAG, "checkChatRoom() > onDataChange() dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount() +
+                ", destinationUid=" + destinationUid);
+
                 for(DataSnapshot item: dataSnapshot.getChildren()) {
                     ChatModel chatModel = item.getValue(ChatModel.class);
                     if(chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
                         chatRoomUid = item.getKey();    // 방 ID
                         button.setEnabled(true);
-                        Log.d(TAG, "checkChatRoom() chatRoomUid=" + chatRoomUid);
+                        Log.d(TAG, "checkChatRoom() > onDataChange() > chatRoomUid=" + chatRoomUid);
 
                         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(MessageActivity.this);
                         recyclerView.setLayoutManager(linearLayoutManager);
@@ -238,7 +202,7 @@ public class MessageActivity extends AppCompatActivity {
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
-
+                Log.d(TAG, "checkChatRoom() > onCancelled() > chatRoomUid=" + chatRoomUid);
             }
         });
     }
@@ -288,9 +252,11 @@ public class MessageActivity extends AppCompatActivity {
 
     class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         List<ChatModel.Comment> comments;
+        Map<String, Integer> commentKeys;
 
         public RecyclerViewAdapter() {
             comments = new ArrayList<>();
+            commentKeys = new HashMap<>();
 
             FirebaseDatabase.getInstance().getReference().child("users").child(destinationUid)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -312,57 +278,7 @@ public class MessageActivity extends AppCompatActivity {
         }
 
         void getMessageList() {
-            Log.d(TAG, "***** RecyclerViewAdapter.getMessageList()");
-
-            databaseReference =  FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments");
-//            valueEventListener =  databaseReference.addValueEventListener(new ValueEventListener() {
-            databaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    comments.clear();
-                    Map<String, Object> readUsers = new HashMap<>();
-
-                    for(DataSnapshot item: dataSnapshot.getChildren()) {
-                        String key = item.getKey();
-                        ChatModel.Comment comment_orgin = item.getValue(ChatModel.Comment.class);
-                        ChatModel.Comment comment_modify = item.getValue(ChatModel.Comment.class);
-                        comment_modify.readUsers.put(uid, true);
-                        readUsers.put(key, comment_modify);
-
-                        Log.d(TAG, "RecyclerViewAdapter.getMessageList() key=" + key + ", comment_orgin=" + comment_orgin.toString());
-                        comments.add(comment_orgin);
-                    }
-                    Log.d(TAG, "RecyclerViewAdapter.getMessageList() comments.size()=" + comments.size());
-
-                    // timeStamp가 불완전하게 입력되는 무한루프 버그 처리
-                    // 메세지 읽음 표시 3 => 1:28
-                    if(comments.size() > 0 ) {
-                        if (comments.get(comments.size() - 1).readUsers.containsKey(uid)) {
-                            FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments").updateChildren(readUsers)
-                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
-                                        @Override
-                                        public void onComplete(@NonNull Task<Void> task) {
-                                            Log.d(TAG, "RecyclerViewAdapter.getMessageList() 1");
-                                            notifyDataSetChanged();
-                                            recyclerView.scrollToPosition(comments.size() - 1);
-                                        }
-                                    });
-                        } else {
-                            Log.d(TAG, "RecyclerViewAdapter.getMessageList() 2");
-
-                            // 맨 마지막으로 이동
-                            recyclerView.scrollToPosition(comments.size() - 1);
-                            // 메시지 갱신
-                            notifyDataSetChanged();
-                        }
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                }
-            });
+            Log.d(TAG, "RecyclerViewAdapter.getMessageList()");
 
             databaseReference =  FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments");
             valueEventListener = databaseReference.addChildEventListener(new ChildEventListener() {
@@ -370,7 +286,9 @@ public class MessageActivity extends AppCompatActivity {
                 public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
                     String key = dataSnapshot.getKey();
                     ChatModel.Comment comment_orgin = dataSnapshot.getValue(ChatModel.Comment.class);
+                    comment_orgin.key = key;
                     comments.add(comment_orgin);
+                    commentKeys.put(key, comments.size() - 1);
                     Log.d(TAG, "onChildAdded() s=" + s + ", key=" + key + ", comment_orgin=" + comment_orgin.toString());
 
                     // 맨 마지막으로 이동
@@ -381,7 +299,13 @@ public class MessageActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-                    Log.d(TAG, "onChildChanged() s=" + s);
+                    String key = dataSnapshot.getKey();
+                    ChatModel.Comment comment = dataSnapshot.getValue(ChatModel.Comment.class);
+                    int index = commentKeys.get(key);
+                    comments.set(index, comment);
+                    Log.d(TAG, "onChildChanged() s=" + s + ", key=" + key + ", comment.toString()=" + comment.toString());
+                    // 메시지 갱신
+                    notifyDataSetChanged();
                 }
 
                 @Override
@@ -413,7 +337,7 @@ public class MessageActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-            Log.d(TAG, "onBindViewHolder() position=" + position + ", message=" + comments.get(position).message);
+            Log.d(TAG, "onBindViewHolder() position=" + position + ", message=" + comments.get(position).message + ", key=" + comments.get(position).key);
 
             MessageViewHolder messageViewHolder = (MessageViewHolder) holder;
 
@@ -452,38 +376,36 @@ public class MessageActivity extends AppCompatActivity {
         }
 
         void setReadCounter(final int position, final TextView textView) {
-            Log.d(TAG, "setReadCounter() position=" + position + " , peopleCount=" + peopleCount);
-            if(peopleCount == 0 ) {
-                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("users")
-                        .addListenerForSingleValueEvent(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                Map<String, Boolean> users = (Map<String, Boolean>) dataSnapshot.getValue();
-                                peopleCount = users.size();
-                                int count = peopleCount - comments.get(position).readUsers.size();
-                                Log.d(TAG, "setReadCounter() 1 count=" + count);
-                                if (count > 0) {
-                                    textView.setVisibility(View.VISIBLE);
-                                    textView.setText(String.valueOf(count));
-                                } else {
-                                    textView.setVisibility(View.INVISIBLE);
+            Log.d(TAG, "setReadCounter() position=" + position + ", chatRoomUid=" + chatRoomUid);
+
+            // 다른 사람이 작성한 메시지에 대해서 읽음 표시를 하면 onChildChanged() 이벤트가 발생 한다.
+            if( !comments.get(position).uid.equals(uid) ) {
+                if (((boolean) comments.get(position).readUsers.get(uid)) == false) {
+                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments")
+                            .child(comments.get(position).key).child("readUsers").child(uid).setValue(true)
+                            .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Void> task) {
+                                    Log.d(TAG, "setReadCounter() > onComplete() > task.isSuccessful()=" + task.isSuccessful());
                                 }
-                            }
-
-                            @Override
-                            public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                            }
-                        });
-            } else {
-                int count = peopleCount - comments.get(position).readUsers.size();
-                Log.d(TAG, "setReadCounter() 2 count=" + count);
-                if (count > 0) {
-                    textView.setVisibility(View.VISIBLE);
-                    textView.setText(String.valueOf(count));
-                } else {
-                    textView.setVisibility(View.INVISIBLE);
+                            });
                 }
+            }
+
+            int unreadCount = 0;
+            final Set<String> keys = comments.get(position).readUsers.keySet();
+
+            for (String key : keys) {
+                if (((boolean) comments.get(position).readUsers.get(key)) == false) {
+                    unreadCount++;
+                }
+            }
+            Log.d(TAG, "setReadCounter() position=" + position + ", chatRoomUid=" + chatRoomUid + ", unreadCount=" + unreadCount);
+            if (unreadCount > 0) {
+                textView.setVisibility(View.VISIBLE);
+                textView.setText(String.valueOf(unreadCount));
+            } else {
+                textView.setVisibility(View.INVISIBLE);
             }
         }
 
@@ -520,7 +442,7 @@ public class MessageActivity extends AppCompatActivity {
     public void onBackPressed() {
         super.onBackPressed();
 
-        Log.d("MessageActivity", "onBackPressed() valueEventListener="+valueEventListener);
+        Log.d(TAG, "onBackPressed() valueEventListener="+valueEventListener);
 
         if(valueEventListener != null) {
             databaseReference.removeEventListener(valueEventListener);
@@ -532,13 +454,12 @@ public class MessageActivity extends AppCompatActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        Log.d("MessageActivity", "onNewIntent()");
+        Log.d(TAG, "onNewIntent()");
 
         uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-//        destinationUid = getIntent().getStringExtra("destinationUid");
         destinationUid = intent.getStringExtra("destinationUid");
-        Log.d("MessageActivity", "onNewIntent() uid="+uid);
-        Log.d("MessageActivity", "onNewIntent() destinationUid="+destinationUid);
+        Log.d(TAG, "onNewIntent() uid="+uid);
+        Log.d(TAG, "onNewIntent() destinationUid="+destinationUid);
 
         checkChatRoom();
     }
@@ -546,8 +467,6 @@ public class MessageActivity extends AppCompatActivity {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.d("MessageActivity", "onDestroy()");
-
-//        softKeyboard.unRegisterSoftKeyboardCallback();
+        Log.d(TAG, "onDestroy()");
     }
 }

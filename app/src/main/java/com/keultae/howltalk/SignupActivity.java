@@ -89,7 +89,8 @@ public class SignupActivity extends AppCompatActivity {
 
                                 task.getResult().getUser().updateProfile(userProfileChangeRequest);
 
-                                FirebaseStorage.getInstance().getReference().child("userImages").child(uid).putFile(imageUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+                                FirebaseStorage.getInstance().getReference().child("userImages").child(uid).putFile(imageUri)
+                                        .addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
                                     @Override
                                     public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
 //                                        @SuppressWarnings("VisibleForTests")
@@ -109,7 +110,8 @@ public class SignupActivity extends AppCompatActivity {
                                                 userModel.profileImageUrl = uri.toString();
                                                 userModel.uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-                                                FirebaseDatabase.getInstance().getReference().child("users").child(uid).setValue(userModel).addOnSuccessListener(new OnSuccessListener<Void>() {
+                                                FirebaseDatabase.getInstance().getReference().child("users").child(uid).setValue(userModel)
+                                                        .addOnSuccessListener(new OnSuccessListener<Void>() {
                                                     @Override
                                                     public void onSuccess(Void aVoid) {
                                                         SignupActivity.this.finish();

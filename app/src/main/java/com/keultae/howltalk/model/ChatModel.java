@@ -12,6 +12,7 @@ public class ChatModel
     public long timestamp; // 마지막 채팅 시간
 
     public static class Comment {
+        public String key;
         public String uid;
         public String message;
         public Object timestamp;

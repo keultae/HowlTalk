@@ -33,12 +33,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SelectFriendActivity extends AppCompatActivity {
+    private final String TAG = "SelectFriendActivity";
+
     ChatModel chatModel = new ChatModel();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_select_friend);
+        Log.d(TAG, "onCreate()");
 
         RecyclerView recyclerView = (RecyclerView) findViewById(R.id.selectFriendActivity_recyclerview);
         recyclerView.setAdapter(new SelectFriendRecyclerViewAdapter());
@@ -50,6 +53,8 @@ public class SelectFriendActivity extends AppCompatActivity {
             public void onClick(View v) {
                 String myUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
                 chatModel.users.put(myUid, true);
+                chatModel.timestamp = System.currentTimeMillis();
+                chatModel.order = Long.MAX_VALUE - System.currentTimeMillis();
                 FirebaseDatabase.getInstance().getReference().child("chatrooms").push().setValue(chatModel);
             }
         });

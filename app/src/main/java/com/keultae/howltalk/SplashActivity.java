@@ -17,6 +17,12 @@ import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
 
@@ -29,6 +35,7 @@ public class SplashActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
+
         // 안테나 창 보이지 않도록 설정
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
@@ -87,17 +94,51 @@ public class SplashActivity extends AppCompatActivity {
                     // res/values/strings.xml 값 가져옴
                     String appName = getResources().getString(R.string.app_name);
                     SharedPreferences sp = getSharedPreferences(appName, Context.MODE_PRIVATE);
+                    String uid = sp.getString("uid", null);
                     String loginId = sp.getString("login_id", null);
-                    Log.d(TAG, "login_id=" + loginId);
+                    String loginPw = sp.getString("login_pw", null);
+                    Log.d(TAG, "uid = " + uid + ", login_id=" + loginId + "login_pw" + loginPw);
 
-                    // 로그 성공시 메인 페이지로 이동
-                    if(loginId != null) {
-                        startActivity(new Intent(getBaseContext(), MainActivity.class));
+                    if(loginId != null && loginPw != null) {
+                        FirebaseAuth.getInstance().signInWithEmailAndPassword(loginId, loginPw).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+                            @Override
+                            public void onComplete(@NonNull Task<AuthResult> task) {
+                                if(task.isSuccessful()) {
+                                    Log.d(TAG, "로그인 성공");
+//                                    SharedPreferences sp = getSharedPreferences(getResources().getString(R.string.app_name), Context.MODE_PRIVATE);
+//                                    SharedPreferences.Editor editor = sp.edit();
+//                                    editor.putString("uid", FirebaseAuth.getInstance().getCurrentUser().getUid());
+//                                    editor.putString("login_id", loginId.getText().toString());
+//                                    editor.putString("login_pw", loginPw.getText().toString());
+//                                    editor.commit();nex
+
+//                                    Intent intent = new Intent(  SplashActivity .this, MainActivity.class);
+//                                    startActivity(intent);
+//                                    finish();
+                                    startActivity(new Intent(getBaseContext(), MainActivity.class));
+                                    finish();
+                                } else {
+                                    Log.d(TAG, "로그인 실패");
+                                    // 로그인 실패한 부분
+                                    Toast.makeText(SplashActivity.this, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                                    startActivity(new Intent(getBaseContext(), LoginActivity.class));
+                                    finish();
+                                }
+                            }
+                        });
                     } else {
                         startActivity(new Intent(getBaseContext(), LoginActivity.class));
+                        finish();
                     }
-                    finish();
 
+
+                    // 로그 성공시 메인 페이지로 이동
+//                    if(loginId != null) {
+//                        startActivity(new Intent(getBaseContext(), MainActivity.class));
+//                    } else {
+//                        startActivity(new Intent(getBaseContext(), LoginActivity.class));
+//                    }
+//                    finish();
                 }
             }, 1000);
         }
