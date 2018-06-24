@@ -246,7 +246,8 @@ public class GroupMessageActivity extends AppCompatActivity {
         });
     }
 
-    void sendFcm(String chatRoomUid, String message, String pushToken) {
+    void sendFcm(String chatRoomId, String message, String pushToken) {
+        HttpsURLConnection con;
         try {
             Gson gson = new Gson();
             String name = FirebaseAuth.getInstance().getCurrentUser().getDisplayName();
@@ -255,7 +256,7 @@ public class GroupMessageActivity extends AppCompatActivity {
             dataMessageModel.to = pushToken;
             dataMessageModel.data.senderName = name;
             dataMessageModel.data.message = message;
-            dataMessageModel.data.chatRoomId = chatRoomUid;
+            dataMessageModel.data.chatRoomId = chatRoomId;
             // 푸시를 전송하는 기기의 UID를 보내줘야 수신하는 기기에서 상대편을 확인할 수 있다.
 //            dataMessageModel.data.destinationUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
             json = gson.toJson(dataMessageModel);
@@ -277,7 +278,7 @@ public class GroupMessageActivity extends AppCompatActivity {
             HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
 
             URL obj = new URL(url);
-            HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
+            con = (HttpsURLConnection) obj.openConnection();
 
             //reuqest header
             con.setRequestMethod("POST");
@@ -308,6 +309,8 @@ public class GroupMessageActivity extends AppCompatActivity {
             }
         } catch(Exception e) {
             e.printStackTrace();
+        } finally {
+
         }
     }
 
@@ -379,6 +382,9 @@ public class GroupMessageActivity extends AppCompatActivity {
             Log.d(TAG, "onBindViewHolder() position=" + position + ", message=" + comments.get(position).message + ", key=" + comments.get(position).key);
 
             GroupMessageViewHolder messageViewHolder = (GroupMessageViewHolder) holder;
+
+            messageViewHolder.textView_readCounter_left.setVisibility(View.INVISIBLE);
+            messageViewHolder.textView_readCounter_right.setVisibility(View.INVISIBLE);
 
             if(comments.get(position).uid.equals(uid)) {
                 // 내가 보낸 메시지
@@ -529,6 +535,10 @@ public class GroupMessageActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         Log.d(TAG, "onNewIntent()");
 
+        uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        chatRoomId = intent.getStringExtra("chatRoomId");
+        Log.d(TAG, "onNewIntent() uid="+uid);
+        Log.d(TAG, "onNewIntent() chatRoomId="+chatRoomId);
     }
 
     @Override
