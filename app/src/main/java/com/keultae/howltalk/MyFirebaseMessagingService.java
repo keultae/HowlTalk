@@ -56,7 +56,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             intent.putExtra("destinationUid", destinationUid);
         } else {
             // 단체 채팅 방
-            Log.d(TAG, "sendNotification() destinationRoom: " + chatRoomId);
+            Log.d(TAG, "sendNotification() chatRoomId: " + chatRoomId);
             intent = new Intent(this, GroupMessageActivity.class);
             intent.putExtra("chatRoomId", chatRoomId);
         }
@@ -89,9 +89,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             notificationManager.createNotificationChannel(channel);
         }
 
-        PowerManager pm = (PowerManager) this.getSystemService(Context.POWER_SERVICE);
-        PowerManager.WakeLock wakelock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "TAG");
-        wakelock.acquire(5000);
+//        PowerManager pm = (PowerManager) this.getSystemService(Context.POWER_SERVICE);
+//        PowerManager.WakeLock wakelock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "TAG");
+//        wakelock.acquire(5000);
 
         notificationManager.notify(0 /* ID of notification */, notificationBuilder.build());
     }
