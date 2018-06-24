@@ -228,7 +228,7 @@ public class ChatFragment extends Fragment {
 
                     intent = new Intent(v.getContext(), GroupMessageActivity.class);
 //                    intent.putExtra("destinationRoom", keys.get(position));
-                    intent.putExtra("destinationRoom", chatModels.get(position).pushId);
+                    intent.putExtra("chatRoomId", chatModels.get(position).pushId);
 
                     ActivityOptions activityOptions = null;
                     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {

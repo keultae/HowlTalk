@@ -3,7 +3,7 @@ package com.keultae.howltalk.model;
 
 public class NotificationModel {
     public String to;
-    public Notification notification = new Notification();
+//    public Notification notification = new Notification();
     public Data data = new Data();
 
     public static class Notification {

@@ -1,13 +1,8 @@
 package com.keultae.howltalk.chat;
 
-import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Rect;
-import android.os.Handler;
-import android.os.Looper;
-import android.speech.tts.TextToSpeech;
+import android.os.StrictMode;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -20,7 +15,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -42,14 +36,19 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
-import com.keultae.howltalk.LoginActivity;
-import com.keultae.howltalk.MainActivity;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.model.ChatModel;
+import com.keultae.howltalk.model.DataMessageModel;
 import com.keultae.howltalk.model.NotificationModel;
 import com.keultae.howltalk.model.UserModel;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -58,6 +57,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -90,10 +94,16 @@ public class MessageActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_message);
 
+        // sendFcm() 호출시 네트웍 에러를 해결하기 위한 코드
+        if (android.os.Build.VERSION.SDK_INT > 9)
+        {
+            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
+
         uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
         destinationUid = getIntent().getStringExtra("destinationUid");
-        Log.d("MessageActivity", "onCreate() uid="+uid);
-        Log.d("MessageActivity", "onCreate() destinationUid="+destinationUid);
+        Log.d("MessageActivity", "onCreate() uid="+uid + ", destinationUid="+destinationUid);
 
         button = (Button)findViewById(R.id.messageActivity_button);
         editText = (EditText)findViewById(R.id.messageActivity_editText);
@@ -129,49 +139,98 @@ public class MessageActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Log.d(TAG, "onClick() chatRoomUid=" + chatRoomUid + ", uid=" + uid + ", destinationUid=" + destinationUid);
-                ChatModel chatModel = new ChatModel();
-                chatModel.users.put(uid, true);
-                chatModel.users.put(destinationUid, true);
+                ChatModel.Comment comment = new ChatModel.Comment();
+                comment.uid = uid;
+                comment.message = editText.getText().toString();
+                comment.timestamp = ServerValue.TIMESTAMP;
+                comment.readUsers.put(destinationUid, false);
 
-                if(chatRoomUid == null) {
-                    button.setEnabled(false);
+                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments").push().setValue(comment)
+                        .addOnCompleteListener(new OnCompleteListener<Void>() {
+                            @Override
+                            public void onComplete(@NonNull Task<Void> task) {
+//                                    sendGcm();
 
-                    // push() 임의의 이름(채탕방 명)
-                    FirebaseDatabase.getInstance().getReference().child("chatrooms")
-                            .push().setValue(chatModel)
-                            .addOnSuccessListener(new OnSuccessListener<Void>() {
-                        @Override
-                        public void onSuccess(Void aVoid) {
-                            checkChatRoom();
-                        }
-                    });
-                } else {
-                    ChatModel.Comment comment = new ChatModel.Comment();
-
-                    comment.uid = uid;
-                    comment.message = editText.getText().toString();
-                    comment.timestamp = ServerValue.TIMESTAMP;
-                    //
-//                    comment.readUsers.put(uid, true);
-                    comment.readUsers.put(destinationUid, false);
-
-                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments").push().setValue(comment)
-                            .addOnCompleteListener(new OnCompleteListener<Void>() {
-                                @Override
-                                public void onComplete(@NonNull Task<Void> task) {
-                                    sendGcm();
-                                    editText.setText("");
+                                try {
+                                    sendFcm(chatRoomUid, editText.getText().toString());
+                                } catch (Exception e) {
+                                    e.printStackTrace();
                                 }
-                            });
-                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("timestamp").setValue(System.currentTimeMillis());
-                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("order").setValue(Long.MAX_VALUE - System.currentTimeMillis());
-                }
+                                editText.setText("");
+                            }
+                        });
+                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("timestamp").setValue(System.currentTimeMillis());
+                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("order").setValue(Long.MAX_VALUE - System.currentTimeMillis());
             }
         });
 
-        checkChatRoom();
+        checkChatRoomOrCreate();
     }
 
+
+    /**
+     * 1:1 채팅방 ID를 찾고 없으면 생성
+     */
+    void checkChatRoomOrCreate() {
+        // 채팅방 ID를 찾거나 생성할떄까지는 메시지를 전송하지 못하도록 막는다.
+        button.setEnabled(false);
+
+        Log.d(TAG, "checkChatRoomOrCreate()");
+        FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
+                .equalTo(true).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                // 조건에 맞는 검색 결과가 없으면 dataSnapshot.getChildrenCount()가 0 이 됨
+                Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount() +
+                ", destinationUid=" + destinationUid);
+
+                if( dataSnapshot.getChildrenCount() > 0 ) {
+                    for (DataSnapshot item : dataSnapshot.getChildren()) {
+                        ChatModel chatModel = item.getValue(ChatModel.class);
+                        if (chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
+                            chatRoomUid = item.getKey();    // 방 ID
+                            Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() > 검색 chatRoomUid=" + chatRoomUid);
+
+                            init();
+                            break;
+                        }
+                    }
+                } else {
+                    final ChatModel chatModel = new ChatModel();
+                    chatModel.users.put(uid, true);
+                    chatModel.users.put(destinationUid, true);
+                    final String tmpChatRoomId = FirebaseDatabase.getInstance().getReference().child("chatrooms").push().getKey();
+
+                    // 채팅방 생성
+                    FirebaseDatabase.getInstance().getReference().child("chatrooms")
+                            .child(tmpChatRoomId).setValue(chatModel)
+                            .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                @Override
+                                public void onSuccess(Void aVoid) {
+                                    chatRoomUid = tmpChatRoomId;
+                                    Log.d(TAG, "checkChatRoomOrCreate() > onSuccess() > 생성 chatRoomUid=" + chatRoomUid);
+
+                                    init();
+                                }
+                            });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.d(TAG, "checkChatRoomOrCreate() > onCancelled() > chatRoomUid=" + chatRoomUid);
+            }
+        });
+    }
+
+    void init() {
+        // 메시지 전송 버튼을 활성화
+        button.setEnabled(true);
+
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(MessageActivity.this);
+        recyclerView.setLayoutManager(linearLayoutManager);
+        recyclerView.setAdapter(new RecyclerViewAdapter());
+    }
 
     /**
      * 1:1 채팅방의 방ID를 찾음
@@ -196,6 +255,8 @@ public class MessageActivity extends AppCompatActivity {
                         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(MessageActivity.this);
                         recyclerView.setLayoutManager(linearLayoutManager);
                         recyclerView.setAdapter(new RecyclerViewAdapter());
+
+                        break;
                     }
                 }
             }
@@ -213,12 +274,10 @@ public class MessageActivity extends AppCompatActivity {
         String userName = FirebaseAuth.getInstance().getCurrentUser().getDisplayName();
         NotificationModel notificationModel = new NotificationModel();
         notificationModel.to = destinationUserModel.pushToken;
-        notificationModel.notification.title = userName;
-        notificationModel.notification.text = editText.getText().toString();
+//        notificationModel.notification.title = userName;
+//        notificationModel.notification.text = editText.getText().toString();
         notificationModel.data.title = userName;
         notificationModel.data.text = editText.getText().toString();
-//        notificationModel.data.destinationUid = destinationUserModel.uid;
-
         // 푸시를 전송하는 기기의 UID를 보내줘야 수신하는 기기에서 상대편을 확인할 수 있다.
         notificationModel.data.destinationUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
@@ -239,15 +298,71 @@ public class MessageActivity extends AppCompatActivity {
         okHttpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-
+                Log.d(TAG, "sendGcm() > onFailure() " + e.toString());
             }
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
+                Log.d(TAG, "sendGcm() > onResponse() " + response.toString());
 
             }
         });
 
+    }
+
+    void sendFcm(String chatRoomUid, String message) throws Exception {
+        Gson gson = new Gson();
+        String name = FirebaseAuth.getInstance().getCurrentUser().getDisplayName();
+        String json;
+        DataMessageModel dataMessageModel = new DataMessageModel();
+        dataMessageModel.to = destinationUserModel.pushToken;
+        dataMessageModel.data.senderName = name;
+        dataMessageModel.data.message = message;
+        dataMessageModel.data.chatRoomId = chatRoomUid;
+        // 푸시를 전송하는 기기의 UID를 보내줘야 수신하는 기기에서 상대편을 확인할 수 있다.
+        dataMessageModel.data.destinationUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        json = gson.toJson(dataMessageModel);
+
+        String url = "https://fcm.googleapis.com/fcm/send";
+        TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager(){
+            public X509Certificate[] getAcceptedIssuers(){return new X509Certificate[0];}
+            public void checkClientTrusted(X509Certificate[] certs, String authType){}
+            public void checkServerTrusted(X509Certificate[] certs, String authType){}
+        }};
+        SSLContext sc = SSLContext.getInstance("TLS");
+        sc.init(null, trustAllCerts, new SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+        URL obj = new URL(url);
+        HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
+
+        //reuqest header
+        con.setRequestMethod("POST");
+        con.setRequestProperty("Content-Type", "application/json");
+        con.setRequestProperty("Authorization", "key=AAAACA0vKRQ:APA91bFDND0ASLIdCBZps0Und5JHNGvbjKmjx-LeU_FDCp-jkkKGFIRtpju0il9OKHnctSIMSZwpAT31m8ROVVVImYUjmk04s8ZaXisGACq_oFQrVgqDwFjNdCI687sUKWj0ZdJ2tE0w");
+        Log.d(TAG, "sendFcm() > json=" + json);
+
+        //post request
+        con.setDoOutput(true);
+        DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+        wr.write(json.getBytes("UTF-8"));
+        wr.flush();
+        wr.close();
+
+        int responseCode = con.getResponseCode();
+        Log.d(TAG, "sendFcm() > responseCode=" + responseCode);
+
+        StringBuffer response = new StringBuffer();
+
+        if(responseCode != 200){
+            BufferedReader in = new BufferedReader( new InputStreamReader(con.getInputStream()));
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+            Log.d(TAG, "sendFcm() > response.toString()=" + response.toString());
+        }
     }
 
     class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -461,7 +576,7 @@ public class MessageActivity extends AppCompatActivity {
         Log.d(TAG, "onNewIntent() uid="+uid);
         Log.d(TAG, "onNewIntent() destinationUid="+destinationUid);
 
-        checkChatRoom();
+//        checkChatRoom();
     }
 
     @Override
