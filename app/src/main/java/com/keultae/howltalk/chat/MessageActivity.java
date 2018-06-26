@@ -1,5 +1,7 @@
 package com.keultae.howltalk.chat;
 
+import android.app.ActivityManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.StrictMode;
@@ -21,6 +23,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
@@ -36,6 +39,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
+import com.keultae.howltalk.MainActivity;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.model.ChatModel;
 import com.keultae.howltalk.model.DataMessageModel;
@@ -53,6 +57,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,6 +155,8 @@ public class MessageActivity extends AppCompatActivity {
                             @Override
                             public void onComplete(@NonNull Task<Void> task) {
 //                                    sendGcm();
+
+                                dump(MessageActivity.this);
 
                                 try {
                                     sendFcm(chatRoomUid, editText.getText().toString());
@@ -553,6 +560,43 @@ public class MessageActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 앱의 백스택 정보와 액티비티 정보를 가져옴
+     */
+    public void dump(Context context) {
+        StringBuffer sb = new StringBuffer();
+
+        // 프로그라운드와 백그라운드에서 실행 중인 앱의 최상위 액티비티 정보를 가져온다.
+        ActivityManager activity_manager = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> task_info = activity_manager.getRunningTasks(9999);
+        for(int i=0; i<task_info.size(); i++) {
+            sb.append("[" + i + "] activity:"+ task_info.get(i).topActivity.getPackageName() + " >> " + task_info.get(i).topActivity.getClassName());
+            sb.append("\r\n");
+        }
+
+        // 앱이 실행 됐을때 기본 액티비티와 최상위 액티비티 정보, 백스택의 액티비티 개수를 가져온다.
+        // 중간 액티비티 목록을 확인하지는 못함
+        ActivityManager m = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> runningTaskInfoList = m.getRunningTasks(10);
+        Iterator<ActivityManager.RunningTaskInfo> itr = runningTaskInfoList.iterator();
+        while (itr.hasNext()) {
+            ActivityManager.RunningTaskInfo runningTaskInfo = (ActivityManager.RunningTaskInfo) itr.next();
+            int id = runningTaskInfo.id;
+            CharSequence desc = runningTaskInfo.description;
+            int numOfActivities = runningTaskInfo.numActivities;
+            String baseActivity = runningTaskInfo.baseActivity.getShortClassName();
+            String topActivity = runningTaskInfo.topActivity.getShortClassName();
+
+            sb.append("id=" +id + ", desc="+desc+ ", numOfActivities="+numOfActivities+
+                    ", topActivity="+topActivity + ", baseActivity=" + baseActivity);
+            sb.append("\r\n");
+        }
+        Log.d(TAG, sb.toString());
+
+        Toast.makeText(context, "uid=" + FirebaseAuth.getInstance().getCurrentUser().getUid()
+                + ", " + sb.toString(), Toast.LENGTH_LONG).show();
+    }
+
     @Override
     public void onBackPressed() {
         super.onBackPressed();
@@ -562,6 +606,8 @@ public class MessageActivity extends AppCompatActivity {
         if(valueEventListener != null) {
             databaseReference.removeEventListener(valueEventListener);
         }
+
+
         overridePendingTransition(R.anim.fromleft, R.anim.toright);
         finish();
     }
@@ -575,8 +621,6 @@ public class MessageActivity extends AppCompatActivity {
         destinationUid = intent.getStringExtra("destinationUid");
         Log.d(TAG, "onNewIntent() uid="+uid);
         Log.d(TAG, "onNewIntent() destinationUid="+destinationUid);
-
-//        checkChatRoom();
     }
 
     @Override
