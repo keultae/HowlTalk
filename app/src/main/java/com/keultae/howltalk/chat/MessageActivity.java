@@ -144,6 +144,9 @@ public class MessageActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Log.d(TAG, "onClick() chatRoomUid=" + chatRoomUid + ", uid=" + uid + ", destinationUid=" + destinationUid);
+                // 메시지 전송이 정상적으로 될때까지 다시 전송하지 못하도록 막음
+                button.setEnabled(false);
+
                 ChatModel.Comment comment = new ChatModel.Comment();
                 comment.uid = uid;
                 comment.message = editText.getText().toString();
@@ -154,6 +157,7 @@ public class MessageActivity extends AppCompatActivity {
                         .addOnCompleteListener(new OnCompleteListener<Void>() {
                             @Override
                             public void onComplete(@NonNull Task<Void> task) {
+                                button.setEnabled(true);
 //                                    sendGcm();
 
                                 dump(MessageActivity.this);
@@ -179,9 +183,6 @@ public class MessageActivity extends AppCompatActivity {
      * 1:1 채팅방 ID를 찾고 없으면 생성
      */
     void checkChatRoomOrCreate() {
-        // 채팅방 ID를 찾거나 생성할떄까지는 메시지를 전송하지 못하도록 막는다.
-        button.setEnabled(false);
-
         Log.d(TAG, "checkChatRoomOrCreate()");
         FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
                 .equalTo(true).addListenerForSingleValueEvent(new ValueEventListener() {
@@ -194,6 +195,7 @@ public class MessageActivity extends AppCompatActivity {
                 if( dataSnapshot.getChildrenCount() > 0 ) {
                     for (DataSnapshot item : dataSnapshot.getChildren()) {
                         ChatModel chatModel = item.getValue(ChatModel.class);
+                        Log.d(TAG, chatModel.toString());
                         if (chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
                             chatRoomUid = item.getKey();    // 방 ID
                             Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() > 검색 chatRoomUid=" + chatRoomUid);
@@ -593,8 +595,8 @@ public class MessageActivity extends AppCompatActivity {
         }
         Log.d(TAG, sb.toString());
 
-        Toast.makeText(context, "uid=" + FirebaseAuth.getInstance().getCurrentUser().getUid()
-                + ", " + sb.toString(), Toast.LENGTH_LONG).show();
+//        Toast.makeText(context, "uid=" + FirebaseAuth.getInstance().getCurrentUser().getUid()
+//                + ", " + sb.toString(), Toast.LENGTH_LONG).show();
     }
 
     @Override

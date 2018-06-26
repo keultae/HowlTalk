@@ -100,8 +100,8 @@ public class MainActivity extends AppCompatActivity {
         }
         Log.d(TAG, sb.toString());
 
-        Toast.makeText(context, "uid=" + FirebaseAuth.getInstance().getCurrentUser().getUid()
-                        + ", " + sb.toString(), Toast.LENGTH_LONG).show();
+//        Toast.makeText(context, "uid=" + FirebaseAuth.getInstance().getCurrentUser().getUid()
+//                        + ", " + sb.toString(), Toast.LENGTH_LONG).show();
     }
 
     void updatePushTokenToServer() {
