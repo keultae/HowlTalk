@@ -192,19 +192,19 @@ public class MessageActivity extends AppCompatActivity {
                 Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount() +
                 ", destinationUid=" + destinationUid);
 
-                if( dataSnapshot.getChildrenCount() > 0 ) {
-                    for (DataSnapshot item : dataSnapshot.getChildren()) {
-                        ChatModel chatModel = item.getValue(ChatModel.class);
-                        Log.d(TAG, chatModel.toString());
-                        if (chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
-                            chatRoomUid = item.getKey();    // 방 ID
-                            Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() > 검색 chatRoomUid=" + chatRoomUid);
+                for (DataSnapshot item : dataSnapshot.getChildren()) {
+                    ChatModel chatModel = item.getValue(ChatModel.class);
+                    Log.d(TAG, chatModel.toString());
+                    if (chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
+                        chatRoomUid = item.getKey();    // 방 ID
+                        Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() > 검색 chatRoomUid=" + chatRoomUid);
 
-                            init();
-                            break;
-                        }
+                        init();
+                        break;
                     }
-                } else {
+                }
+
+                if( dataSnapshot.getChildrenCount() == 0 || chatRoomUid == null ) {
                     final ChatModel chatModel = new ChatModel();
                     chatModel.users.put(uid, true);
                     chatModel.users.put(destinationUid, true);
