@@ -28,6 +28,7 @@ import com.keultae.howltalk.R;
 import com.keultae.howltalk.chat.GroupMessageActivity;
 import com.keultae.howltalk.chat.MessageActivity;
 import com.keultae.howltalk.model.ChatModel;
+import com.keultae.howltalk.model.RoomModel;
 import com.keultae.howltalk.model.UserModel;
 
 import java.text.SimpleDateFormat;
@@ -60,7 +61,7 @@ public class ChatFragment extends Fragment {
     }
 
     class ChatRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        private List<ChatModel> chatModels = new ArrayList<>();
+        private List<RoomModel> roomModels = new ArrayList<>();
         private List<String> keys = new ArrayList<>();
         private String uid;
         private ArrayList<String> destinationUsers = new ArrayList<>();
@@ -106,21 +107,21 @@ public class ChatFragment extends Fragment {
             // 모든 값이 검색됨, uid가 null 값이 가장 앞에 나오고 uid 값이 true이면 키 순서로 정렬
 //            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
             // uid 키의 값이 모두 true이므로 uid가 있는 값만 검색됨
-            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid).equalTo(true)
+            FirebaseDatabase.getInstance().getReference().child("rooms").orderByChild("user/uids/"+uid).equalTo(true)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                            chatModels.clear();
+                            roomModels.clear();
                             for(DataSnapshot item: dataSnapshot.getChildren()) {
-                                ChatModel chatModel = item.getValue(ChatModel.class);
-                                chatModel.pushId = item.getKey();
+                                RoomModel roomModel = item.getValue(RoomModel.class);
+                                roomModel.roomId = item.getKey();
 
-                                Log.d(TAG, "ChatRecyclerViewAdapter() > chatModel=" + chatModel.toString());
+                                Log.d(TAG, "ChatRecyclerViewAdapter() > roomModel=" + roomModel.toString());
                                 Log.d(TAG, "ChatRecyclerViewAdapter() > item.getKey()=" + item.getKey());
 
                                 // 본인이 포함된 채팅방만 보여줌
-                                if(chatModel.users.get(uid) != null) {
-                                    chatModels.add(chatModel);
+                                if(roomModel.user.uids.get(uid) != null) {
+                                    roomModels.add(roomModel);
                                     keys.add(item.getKey());
                                 }
                             }
@@ -129,7 +130,7 @@ public class ChatFragment extends Fragment {
 //                            ChatModel cm = chatModels.get(0);
 //                            chatModels.set(0, chatModels.get(chatModels.size()-1));
 //                            chatModels.set(chatModels.size()-1, cm);
-                            Collections.sort(chatModels, new Descending());
+                            Collections.sort(roomModels, new Descending());
                             notifyDataSetChanged();
                         }
 
@@ -139,12 +140,11 @@ public class ChatFragment extends Fragment {
                     });
         }
 
-        class Descending implements Comparator<ChatModel> {
+        class Descending implements Comparator<RoomModel> {
 
             @Override
-            public int compare(ChatModel chatModel, ChatModel t1) {
-                return (int) (chatModel.order - t1.order);    // 내림차순
-//                return (int) (t1.order - chatModel.order);  // 오름차순
+            public int compare(RoomModel roomModel, RoomModel t1) {
+                return (int) (roomModel.descTimestamp - t1.descTimestamp);    // 내림차순
             }
         }
 
@@ -164,11 +164,9 @@ public class ChatFragment extends Fragment {
 
             Log.d(TAG, "onBindViewHolder() > position=" + position);
 
-            // 챗방에 있는 유저를 모두 체크
-            for(String user: chatModels.get(position).users.keySet()) {
-                if(!user.equals(uid)) {
-                    destinationUid = user;
-                    destinationUsers.add(destinationUid);
+            for(String key : roomModels.get(position).user.names.keySet()) {
+                if(!uid.equals(key)) {
+                    destinationUid = key;
                 }
             }
             FirebaseDatabase.getInstance().getReference().child("users").child(destinationUid)
@@ -180,12 +178,6 @@ public class ChatFragment extends Fragment {
                                     .load(userModel.profileImageUrl)
                                     .apply(new RequestOptions().circleCrop())
                                     .into(customViewHolder.imageView);
-
-                            String title = userModel.userName;
-                            if(chatModels.get(position).users.size() > 2) {
-                                title += " (" + chatModels.get(position).users.size() + "명)";
-                            }
-                            customViewHolder.textView_title.setText(title);
                         }
 
                         @Override
@@ -194,41 +186,20 @@ public class ChatFragment extends Fragment {
                         }
                     });
 
-            // 메시지를 내림 차순으로 정렬 후 마지막 메시지의 키 값을 가져옴
-            Map<String, ChatModel.Comment> commentMap = new TreeMap<>(Collections.reverseOrder());
-            Log.d(TAG, "onBindViewHolder() > comments=" + chatModels.get(position).comments.toString());
-            commentMap.putAll(chatModels.get(position).comments);
+            customViewHolder.textView_title.setText(roomModels.get(position).toNames(uid));
+            customViewHolder.textView_last_message.setText(roomModels.get(position).lastMessage);
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
+            long unixTime = Long.MAX_VALUE - roomModels.get(position).descTimestamp;
+            Date date = new Date(unixTime);
+            customViewHolder.textView_timestamp.setText(simpleDateFormat.format(date));
 
-            if(commentMap.keySet().toArray().length > 0) {
-                String lastMesssageKey = (String) commentMap.keySet().toArray()[0];
-                Log.d(TAG, "onBindViewHolder() > lastMesssageKey=" + lastMesssageKey);
-                Log.d(TAG, "onBindViewHolder() > message=" + chatModels.get(position).comments.get(lastMesssageKey).message);
-                customViewHolder.textView_last_message.setText(chatModels.get(position).comments.get(lastMesssageKey).message);
-
-                // TimeStamp
-                simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
-//                long unixTime = (long) chatModels.get(position).comments.get(lastMesssageKey).timestamp;
-                // 1529112081051, 1529200078125, 1529223003360
-                long unixTime = chatModels.get(position).timestamp;
-                Date date = new Date(unixTime);
-                customViewHolder.textView_timestamp.setText(simpleDateFormat.format(date));
-            }
             // 단체 채팅방 3 01:42 동영상에는 아래 코드가 있는데, 따라서 입력하면 오류가 발생
             customViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     Intent intent = null;
-//                    if(chatModels.get(position).users.size() > 2) {
-//                        intent = new Intent(v.getContext(), GroupMessageActivity.class);
-//                        intent.putExtra("destinationRoom", keys.get(position));
-//                    } else {
-//                        intent = new Intent(v.getContext(), MessageActivity.class);
-//                        intent.putExtra("destinationUid", destinationUsers.get(position));
-//                    }
-
                     intent = new Intent(v.getContext(), GroupMessageActivity.class);
-//                    intent.putExtra("destinationRoom", keys.get(position));
-                    intent.putExtra("chatRoomId", chatModels.get(position).pushId);
+                    intent.putExtra("chatRoomId", roomModels.get(position).roomId);
 
                     ActivityOptions activityOptions = null;
                     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -241,7 +212,7 @@ public class ChatFragment extends Fragment {
 
         @Override
         public int getItemCount() {
-            return chatModels.size();
+            return roomModels.size();
         }
 
         private class CustomViewHolder extends RecyclerView.ViewHolder {

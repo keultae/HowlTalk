@@ -43,7 +43,9 @@ import com.keultae.howltalk.MainActivity;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.model.ChatModel;
 import com.keultae.howltalk.model.DataMessageModel;
+import com.keultae.howltalk.model.MessageModel;
 import com.keultae.howltalk.model.NotificationModel;
+import com.keultae.howltalk.model.RoomModel;
 import com.keultae.howltalk.model.UserModel;
 
 import java.io.BufferedReader;
@@ -80,6 +82,7 @@ public class MessageActivity extends AppCompatActivity {
     private final String TAG = "MessageActivity";
 
     private String destinationUid;
+    private String destinationUserName;
     private Button button;
     private EditText editText;
     private String uid;
@@ -108,7 +111,8 @@ public class MessageActivity extends AppCompatActivity {
 
         uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
         destinationUid = getIntent().getStringExtra("destinationUid");
-        Log.d("MessageActivity", "onCreate() uid="+uid + ", destinationUid="+destinationUid);
+        destinationUserName = getIntent().getStringExtra("destinationUserName");
+        Log.d("MessageActivity", "onCreate() uid="+uid + ", destinationUid="+destinationUid + ", destinationUserName="+destinationUserName);
 
         button = (Button)findViewById(R.id.messageActivity_button);
         editText = (EditText)findViewById(R.id.messageActivity_editText);
@@ -147,31 +151,26 @@ public class MessageActivity extends AppCompatActivity {
                 // 메시지 전송이 정상적으로 될때까지 다시 전송하지 못하도록 막음
                 button.setEnabled(false);
 
-                ChatModel.Comment comment = new ChatModel.Comment();
-                comment.uid = uid;
-                comment.message = editText.getText().toString();
-                comment.timestamp = ServerValue.TIMESTAMP;
-                comment.readUsers.put(destinationUid, false);
+                MessageModel messageModel = new MessageModel();
+                messageModel.uid = uid;
+                messageModel.message = editText.getText().toString();
+                messageModel.timestamp = ServerValue.TIMESTAMP;
+                messageModel.readUsers.put(destinationUid, false);
 
-                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments").push().setValue(comment)
-                        .addOnCompleteListener(new OnCompleteListener<Void>() {
+                final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(chatRoomUid).push().getKey();
+
+                Map<String, Object> childUpdates = new HashMap<>();
+                childUpdates.put("/rooms/" + chatRoomUid + "/descTimestamp", Long.MAX_VALUE - System.currentTimeMillis() );
+                childUpdates.put("/rooms/" + chatRoomUid + "/lastMessage",  messageModel.message);
+                childUpdates.put("/messages/" + chatRoomUid + "/" + chattingId, messageModel.toMap());
+
+                FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
+                        .addOnSuccessListener(new OnSuccessListener<Void>() {
                             @Override
-                            public void onComplete(@NonNull Task<Void> task) {
-                                button.setEnabled(true);
-//                                    sendGcm();
-
-                                dump(MessageActivity.this);
-
-                                try {
-                                    sendFcm(chatRoomUid, editText.getText().toString());
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                                editText.setText("");
+                            public void onSuccess(Void aVoid) {
+                                Log.d(TAG, "메시지 저장 > onSuccess() > 생성 chattingId=" + chattingId);
                             }
                         });
-                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("timestamp").setValue(System.currentTimeMillis());
-                FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("order").setValue(Long.MAX_VALUE - System.currentTimeMillis());
             }
         });
 
@@ -184,18 +183,19 @@ public class MessageActivity extends AppCompatActivity {
      */
     void checkChatRoomOrCreate() {
         Log.d(TAG, "checkChatRoomOrCreate()");
-        FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
+
+        FirebaseDatabase.getInstance().getReference().child("rooms").orderByChild("user/uids/"+uid)
                 .equalTo(true).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 // 조건에 맞는 검색 결과가 없으면 dataSnapshot.getChildrenCount()가 0 이 됨
                 Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount() +
-                ", destinationUid=" + destinationUid);
+                        ", destinationUid=" + destinationUid);
 
                 for (DataSnapshot item : dataSnapshot.getChildren()) {
-                    ChatModel chatModel = item.getValue(ChatModel.class);
-                    Log.d(TAG, chatModel.toString());
-                    if (chatModel.users.containsKey(destinationUid) && chatModel.users.size() == 2) {
+                    RoomModel roomModel = item.getValue(RoomModel.class);
+                    Log.d(TAG, roomModel.toString());
+                    if (roomModel.user.uids.containsKey(destinationUid) && roomModel.user.uids.size() == 2) {
                         chatRoomUid = item.getKey();    // 방 ID
                         Log.d(TAG, "checkChatRoomOrCreate() > onDataChange() > 검색 chatRoomUid=" + chatRoomUid);
 
@@ -204,20 +204,36 @@ public class MessageActivity extends AppCompatActivity {
                     }
                 }
 
-                if( dataSnapshot.getChildrenCount() == 0 || chatRoomUid == null ) {
-                    final ChatModel chatModel = new ChatModel();
-                    chatModel.users.put(uid, true);
-                    chatModel.users.put(destinationUid, true);
-                    final String tmpChatRoomId = FirebaseDatabase.getInstance().getReference().child("chatrooms").push().getKey();
+                if( chatRoomUid == null ) {
+                    final String roomId = FirebaseDatabase.getInstance().getReference().child("rooms").push().getKey();
+                    final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(roomId).push().getKey();
+                    String initMessage = destinationUserName + "을 초대합니다.";
+                    RoomModel roomModel = new RoomModel();
+                    roomModel.descTimestamp = Long.MAX_VALUE - System.currentTimeMillis();
+                    roomModel.lastMessage = initMessage;
 
-                    // 채팅방 생성
-                    FirebaseDatabase.getInstance().getReference().child("chatrooms")
-                            .child(tmpChatRoomId).setValue(chatModel)
+                    roomModel.user.uids.put(uid, true);
+                    roomModel.user.uids.put(destinationUid, true);
+
+                    roomModel.user.names.put(uid, FirebaseAuth.getInstance().getCurrentUser().getDisplayName());
+                    roomModel.user.names.put(destinationUid, destinationUserName);
+
+                    MessageModel messageModel = new MessageModel();
+                    messageModel.uid = uid;
+                    messageModel.timestamp = System.currentTimeMillis();
+                    messageModel.message = initMessage;
+                    messageModel.readUsers.put(destinationUid, false);
+
+                    Map<String, Object> childUpdates = new HashMap<>();
+                    childUpdates.put("/rooms/" + roomId, roomModel.toMap());
+                    childUpdates.put("/messages/" + roomId + "/" + chattingId, messageModel.toMap());
+
+                    FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
                             .addOnSuccessListener(new OnSuccessListener<Void>() {
                                 @Override
                                 public void onSuccess(Void aVoid) {
-                                    chatRoomUid = tmpChatRoomId;
-                                    Log.d(TAG, "checkChatRoomOrCreate() > onSuccess() > 생성 chatRoomUid=" + chatRoomUid);
+                                    chatRoomUid = roomId;
+                                    Log.d(TAG, "checkChatRoomOrCreate() > onSuccess() > 생성 roomId=" + chatRoomUid);
 
                                     init();
                                 }
@@ -375,12 +391,12 @@ public class MessageActivity extends AppCompatActivity {
     }
 
     class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        List<ChatModel.Comment> comments;
-        Map<String, Integer> commentKeys;
+        List<MessageModel> messages;
+        Map<String, Integer> messageIds;
 
         public RecyclerViewAdapter() {
-            comments = new ArrayList<>();
-            commentKeys = new HashMap<>();
+            messages = new ArrayList<>();
+            messageIds = new HashMap<>();
 
             FirebaseDatabase.getInstance().getReference().child("users").child(destinationUid)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -404,30 +420,30 @@ public class MessageActivity extends AppCompatActivity {
         void getMessageList() {
             Log.d(TAG, "RecyclerViewAdapter.getMessageList()");
 
-            databaseReference =  FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments");
+            databaseReference =  FirebaseDatabase.getInstance().getReference().child("messages").child(chatRoomUid);
             valueEventListener = databaseReference.addChildEventListener(new ChildEventListener() {
                 @Override
                 public void onChildAdded(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-                    String key = dataSnapshot.getKey();
-                    ChatModel.Comment comment_orgin = dataSnapshot.getValue(ChatModel.Comment.class);
-                    comment_orgin.key = key;
-                    comments.add(comment_orgin);
-                    commentKeys.put(key, comments.size() - 1);
-                    Log.d(TAG, "onChildAdded() s=" + s + ", key=" + key + ", comment_orgin=" + comment_orgin.toString());
+                    String messageId = dataSnapshot.getKey();
+                    MessageModel message = dataSnapshot.getValue(MessageModel.class);
+                    message.messageId = messageId;
+                    messages.add(message);
+                    messageIds.put(messageId, messages.size() - 1);
+                    Log.d(TAG, "onChildAdded() s=" + s + ", messageId=" + messageId + ", message=" + message.toString());
 
                     // 맨 마지막으로 이동
-                    recyclerView.scrollToPosition(comments.size() - 1);
+                    recyclerView.scrollToPosition(messages.size() - 1);
                     // 메시지 갱신
                     notifyDataSetChanged();
                 }
 
                 @Override
                 public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-                    String key = dataSnapshot.getKey();
-                    ChatModel.Comment comment = dataSnapshot.getValue(ChatModel.Comment.class);
-                    int index = commentKeys.get(key);
-                    comments.set(index, comment);
-                    Log.d(TAG, "onChildChanged() s=" + s + ", key=" + key + ", comment.toString()=" + comment.toString());
+                    String messageId = dataSnapshot.getKey();
+                    MessageModel message = dataSnapshot.getValue(MessageModel.class);
+                    int index = messageIds.get(messageId);
+                    messages.set(index, message);
+                    Log.d(TAG, "onChildChanged() s=" + s + ", messageId=" + messageId + ", message=" + message.toString());
                     // 메시지 갱신
                     notifyDataSetChanged();
                 }
@@ -461,15 +477,15 @@ public class MessageActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-            Log.d(TAG, "onBindViewHolder() position=" + position + ", message=" + comments.get(position).message + ", key=" + comments.get(position).key);
+            Log.d(TAG, "onBindViewHolder() position=" + position + ", message=" + messages.get(position).message);
 
             MessageViewHolder messageViewHolder = (MessageViewHolder) holder;
 
             // 내가 보낸 메시지
-            if(comments.get(position).uid.equals(uid)) {
+            if(messages.get(position).uid.equals(uid)) {
                 messageViewHolder.linearLayout_destination.setVisibility(View.INVISIBLE);
 
-                messageViewHolder.textView_message.setText(comments.get(position).message);
+                messageViewHolder.textView_message.setText(messages.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.rightbubble);
                 messageViewHolder.textView_message.setTextSize(25);
                 messageViewHolder.linearLayout_main.setGravity(Gravity.RIGHT);
@@ -486,13 +502,13 @@ public class MessageActivity extends AppCompatActivity {
                 messageViewHolder.linearLayout_destination.setVisibility(View.VISIBLE);
 
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.leftbubble);
-                messageViewHolder.textView_message.setText(comments.get(position).message);
+                messageViewHolder.textView_message.setText(messages.get(position).message);
                 messageViewHolder.textView_message.setTextSize(25);
                 messageViewHolder.linearLayout_main.setGravity(Gravity.LEFT);
 
                 setReadCounter(position, messageViewHolder.textView_readCounter_right);
             }
-            long unixTime = (long)comments.get(position).timestamp;
+            long unixTime = (long)messages.get(position).timestamp;
             Date date = new Date(unixTime);
             simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
             String time = simpleDateFormat.format(date);
@@ -503,10 +519,10 @@ public class MessageActivity extends AppCompatActivity {
             Log.d(TAG, "setReadCounter() position=" + position + ", chatRoomUid=" + chatRoomUid);
 
             // 다른 사람이 작성한 메시지에 대해서 읽음 표시를 하면 onChildChanged() 이벤트가 발생 한다.
-            if( !comments.get(position).uid.equals(uid) ) {
-                if (((boolean) comments.get(position).readUsers.get(uid)) == false) {
+            if( !messages.get(position).uid.equals(uid) ) {
+                if (((boolean) messages.get(position).readUsers.get(uid)) == false) {
                     FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomUid).child("comments")
-                            .child(comments.get(position).key).child("readUsers").child(uid).setValue(true)
+                            .child(messages.get(position).messageId).child("readUsers").child(uid).setValue(true)
                             .addOnCompleteListener(new OnCompleteListener<Void>() {
                                 @Override
                                 public void onComplete(@NonNull Task<Void> task) {
@@ -517,10 +533,10 @@ public class MessageActivity extends AppCompatActivity {
             }
 
             int unreadCount = 0;
-            final Set<String> keys = comments.get(position).readUsers.keySet();
+            final Set<String> keys = messages.get(position).readUsers.keySet();
 
             for (String key : keys) {
-                if (((boolean) comments.get(position).readUsers.get(key)) == false) {
+                if (((boolean) messages.get(position).readUsers.get(key)) == false) {
                     unreadCount++;
                 }
             }
@@ -535,7 +551,7 @@ public class MessageActivity extends AppCompatActivity {
 
         @Override
         public int getItemCount() {
-            return comments.size();
+            return messages.size();
         }
 
         private class MessageViewHolder extends RecyclerView.ViewHolder {

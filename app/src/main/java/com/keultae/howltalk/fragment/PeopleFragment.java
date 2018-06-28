@@ -116,6 +116,7 @@ public class PeopleFragment extends Fragment{
                 public void onClick(View v) {
                     Intent intent = new Intent(getView().getContext(), MessageActivity.class);
                     intent.putExtra("destinationUid", userModels.get(position).uid);
+                    intent.putExtra("destinationUserName", userModels.get(position).userName);
 
                     ActivityOptions activityOptions = null;
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
