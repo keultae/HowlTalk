@@ -19,6 +19,7 @@ import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -27,15 +28,19 @@ import com.google.firebase.database.ValueEventListener;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.chat.MessageActivity;
 import com.keultae.howltalk.model.ChatModel;
+import com.keultae.howltalk.model.MessageModel;
+import com.keultae.howltalk.model.RoomModel;
 import com.keultae.howltalk.model.UserModel;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SelectFriendActivity extends AppCompatActivity {
     private final String TAG = "SelectFriendActivity";
 
-    ChatModel chatModel = new ChatModel();
+    RoomModel roomModel = new RoomModel();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,11 +56,46 @@ public class SelectFriendActivity extends AppCompatActivity {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String myUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-                chatModel.users.put(myUid, true);
-                chatModel.timestamp = System.currentTimeMillis();
-                chatModel.order = Long.MAX_VALUE - System.currentTimeMillis();
-                FirebaseDatabase.getInstance().getReference().child("chatrooms").push().setValue(chatModel);
+                final String roomId = FirebaseDatabase.getInstance().getReference().child("rooms").push().getKey();
+                final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(roomId).push().getKey();
+
+                StringBuilder sb = new StringBuilder();
+                for(String key: roomModel.user.uids.keySet()) {
+                    sb.append(roomModel.user.names.get(key));
+                    sb.append(",");
+                }
+                String initMessage = sb.toString().substring(0, sb.toString().length()-1)+ "을 초대합니다.";
+//                RoomModel roomModel = new RoomModel();
+                roomModel.descTimestamp = Long.MAX_VALUE - System.currentTimeMillis();
+                roomModel.lastMessage = initMessage;
+
+                String uid = FirebaseAuth.getInstance().getUid();
+                String name = FirebaseAuth.getInstance().getCurrentUser().getDisplayName();
+
+                roomModel.user.uids.put(uid, true);
+                roomModel.user.names.put(uid, name);
+
+                MessageModel messageModel = new MessageModel();
+                messageModel.uid = uid;
+                messageModel.timestamp = System.currentTimeMillis();
+                messageModel.message = initMessage;
+                for(String key: roomModel.user.uids.keySet()) {
+                    if(!key.equals(uid)) {
+                        messageModel.readUsers.put(key, false);
+                    }
+                }
+
+                Map<String, Object> childUpdates = new HashMap<>();
+                childUpdates.put("/rooms/" + roomId, roomModel.toMap());
+                childUpdates.put("/messages/" + roomId + "/" + chattingId, messageModel.toMap());
+
+                FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
+                        .addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void aVoid) {
+                                Log.d(TAG, "onClick() > onSuccess() > 생성 roomId=" + roomId);
+                            }
+                        });
             }
         });
     }
@@ -130,9 +170,11 @@ public class SelectFriendActivity extends AppCompatActivity {
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     // 체크 된 상태
                     if(isChecked) {
-                        chatModel.users.put(userModels.get(position).uid, true);
+                        roomModel.user.uids.put(userModels.get(position).uid, true);
+                        roomModel.user.names.put(userModels.get(position).uid, userModels.get(position).userName);
                     } else {
-                        chatModel.users.remove(userModels.get(position));
+                        roomModel.user.uids.remove(userModels.get(position).uid);
+                        roomModel.user.names.remove(userModels.get(position).uid);
                     }
                 }
             });
