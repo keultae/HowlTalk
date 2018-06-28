@@ -246,6 +246,52 @@ public class MessageActivity extends AppCompatActivity {
                 Log.d(TAG, "checkChatRoomOrCreate() > onCancelled() > chatRoomUid=" + chatRoomUid);
             }
         });
+
+        Map<String, Object> childUpdates = new HashMap<>();
+        UserModel userModel;
+
+        userModel = new UserModel();
+        userModel.profileImageUrl = "https://firebasestorage.googleapis.com/v0/b/howltalk-b6b11.appspot.com/o/userImages%2FBDzAYwXZrwVmsB8AgQLjNVLP6sE3?alt=media&token=4d772032-fe0c-4793-bb0e-61125bb56ad6";
+        userModel.pushToken = "eNpf5pwHfRM:APA91bG_donXGmUX1MNFbQD4EqOlRFozpnZ1GSLYAAeP4TPrpfyt39Kkvb17aH6Kv8F3VZZY66sTYUf8TyyK5tYIOm8qZ2DXuvij-EBq-3Y3nULl54abWx4whwabQi-2OgZhuNK6wBH5vEQQfc6WMrSLE1-ypmESig";
+        userModel.uid = "BDzAYwXZrwVmsB8AgQLjNVLP6sE3";
+        userModel.userName = "A5";
+        childUpdates.put("/test/users/BDzAYwXZrwVmsB8AgQLjNVLP6sE3", userModel.toMap());
+
+        userModel = new UserModel();
+        userModel.profileImageUrl = "https://firebasestorage.googleapis.com/v0/b/howltalk-b6b11.appspot.com/o/userImages%2FBDzAYwXZrwVmsB8AgQLjNVLP6sE3?alt=media&token=4d772032-fe0c-4793-bb0e-61125bb56ad6";
+        userModel.pushToken = "eNpf5pwHfRM:APA91bG_donXGmUX1MNFbQD4EqOlRFozpnZ1GSLYAAeP4TPrpfyt39Kkvb17aH6Kv8F3VZZY66sTYUf8TyyK5tYIOm8qZ2DXuvij-EBq-3Y3nULl54abWx4whwabQi-2OgZhuNK6wBH5vEQQfc6WMrSLE1-ypmESig";
+        userModel.uid = "KHOp1dIuPoaT7NhKfrOP48kqgxC3";
+        userModel.userName = "Tab";
+        childUpdates.put("/test/users/KHOp1dIuPoaT7NhKfrOP48kqgxC3", userModel.toMap());
+
+        FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.d(TAG, "배열 저장 > onSuccess()");
+
+                        FirebaseDatabase.getInstance().getReference().child("test/users").orderByChild("uid")
+                                .equalTo("BDzAYwXZrwVmsB8AgQLjNVLP6sE3").addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                // 조건에 맞는 검색 결과가 없으면 dataSnapshot.getChildrenCount()가 0 이 됨
+                                Log.d(TAG, "배열 검색 > onDataChange(), dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount());
+
+                                for (DataSnapshot item : dataSnapshot.getChildren()) {
+                                    UserModel userModel = item.getValue(UserModel.class);
+                                    Log.d(TAG, "item.getKey()=" + item.getKey() + ", userModel=" + userModel.toString());
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError databaseError) {
+                                Log.d(TAG, "배열 검색 > onCancelled()");
+                            }
+                        });
+                    }
+                });
+
+
     }
 
     void init() {
