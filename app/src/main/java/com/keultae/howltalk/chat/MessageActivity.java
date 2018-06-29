@@ -247,6 +247,7 @@ public class MessageActivity extends AppCompatActivity {
             }
         });
 
+        /*
         Map<String, Object> childUpdates = new HashMap<>();
         UserModel userModel;
 
@@ -290,8 +291,7 @@ public class MessageActivity extends AppCompatActivity {
                         });
                     }
                 });
-
-
+                */
     }
 
     void init() {
