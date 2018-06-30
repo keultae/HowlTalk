@@ -2,10 +2,11 @@ package com.keultae.howltalk.model;
 
 import com.google.firebase.database.Exclude;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-public class UserModel {
+public class UserModel implements Serializable {
     public String userName;
     public String profileImageUrl;
     public String uid;

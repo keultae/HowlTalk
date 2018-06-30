@@ -25,7 +25,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.keultae.howltalk.R;
-import com.keultae.howltalk.chat.MessageActivity;
+import com.keultae.howltalk.chat.GroupMessageActivity;
 import com.keultae.howltalk.model.MessageModel;
 import com.keultae.howltalk.model.RoomModel;
 import com.keultae.howltalk.model.UserModel;
@@ -37,6 +37,10 @@ import java.util.Map;
 
 public class PeopleFragment extends Fragment{
     private final String TAG = "PeopleFragment";
+
+    private List<UserModel> allUserModels = new ArrayList<>();  // 본인을 제외한 모든 사용자
+    private List<UserModel> chatRoomUserModels = new ArrayList<>();;  // 1:1 채팅방의 사용자
+    private UserModel myUserModel;          // 본인
 
     @Nullable
     @Override
@@ -51,24 +55,27 @@ public class PeopleFragment extends Fragment{
         floatingActionButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(v.getContext(), SelectFriendActivity.class));
+                Intent intent = new Intent(getView().getContext(), SelectFriendActivity.class);
+                intent.putExtra("userModel", myUserModel);
+
+                ActivityOptions activityOptions = null;
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+                    activityOptions = ActivityOptions.makeCustomAnimation(getView().getContext(), R.anim.fromright, R.anim.toleft);
+                    startActivity(intent, activityOptions.toBundle());
+                }
             }
         });
         return view;
     }
 
     class PeopleFragmentRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        List<UserModel> userModels;
-        UserModel myUserModel;    // 본인
-
         public PeopleFragmentRecyclerViewAdapter() {
-            userModels = new ArrayList<>();
             final String myUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
             FirebaseDatabase.getInstance().getReference().child("users").addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    userModels.clear();
+                    allUserModels.clear();
 
                     for(DataSnapshot snapshot: dataSnapshot.getChildren()) {
                         UserModel userModel = snapshot.getValue(UserModel.class);
@@ -78,7 +85,7 @@ public class PeopleFragment extends Fragment{
                             myUserModel = userModel;
                             continue;
                         }
-                        userModels.add(userModel);
+                        allUserModels.add(userModel);
                     }
                     notifyDataSetChanged();
                 }
@@ -105,40 +112,30 @@ public class PeopleFragment extends Fragment{
             CustomViewHolder customViewHolder = (CustomViewHolder)holder;
 
             // URL의 이미지를 View에 지정
-            Glide.with
-                    (holder.itemView.getContext())
-                    .load(userModels.get(position).profileImageUrl)
+            Glide.with(holder.itemView.getContext())
+                    .load(allUserModels.get(position).profileImageUrl)
                     .apply(new RequestOptions().circleCrop())
                     .into(customViewHolder.imageView);
 
-            customViewHolder.textView.setText(userModels.get(position).userName);
+            customViewHolder.textView.setText(allUserModels.get(position).userName);
 
-            if(userModels.get(position).comment != null) {
-                customViewHolder.textView_comment.setText(userModels.get(position).comment);
+            if(allUserModels.get(position).comment != null) {
+                customViewHolder.textView_comment.setText(allUserModels.get(position).comment);
                 customViewHolder.textView_comment.setBackgroundResource(R.drawable.rightbubble);
             }
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-//                    Intent intent = new Intent(getView().getContext(), MessageActivity.class);
-//                    intent.putExtra("destinationUid", userModels.get(position).uid);
-//                    intent.putExtra("destinationUserName", userModels.get(position).userName);
-//
-//                    ActivityOptions activityOptions = null;
-//                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
-//                        activityOptions = ActivityOptions.makeCustomAnimation(getView().getContext(), R.anim.fromright, R.anim.toleft);
-//                        startActivity(intent, activityOptions.toBundle());
-//                    }
-                    startChattingActivity(myUserModel, userModels.get(position));
+                    searchOrCreateRoom(position, myUserModel, allUserModels.get(position));
                 }
             });
         }
 
         @Override
         public int getItemCount() {
-            Log.d(TAG, "getItemCount() > userModels.size()=" + userModels.size());
-            return userModels.size();
+            Log.d(TAG, "getItemCount() > allUserModels.size()=" + allUserModels.size());
+            return allUserModels.size();
         }
 
         private class CustomViewHolder extends RecyclerView.ViewHolder {
@@ -155,21 +152,35 @@ public class PeopleFragment extends Fragment{
             }
         }
 
+        void startMessageActivity(int position, String chatRoomId, RoomModel roomModel) {
+            Log.d(TAG, "startMessageActivity() position="+position+", chatRoomId="+chatRoomId+", roomModel="+roomModel.toString());
+//            Intent intent = new Intent(getView().getContext(), MessageActivity.class);
+            Intent intent = new Intent(getView().getContext(), GroupMessageActivity.class);
+            intent.putExtra("chatRoomId", chatRoomId);
+            intent.putExtra("roomModel", roomModel);
+
+            ActivityOptions activityOptions = null;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+                activityOptions = ActivityOptions.makeCustomAnimation(getView().getContext(), R.anim.fromright, R.anim.toleft);
+                startActivity(intent, activityOptions.toBundle());
+            }
+        }
+
         /**
          * 1:1 채팅방 ID를 찾고 없으면 생성한 후 채팅 액티비티로 이동
          */
-        void startChattingActivity(final UserModel userModel, final UserModel destinationUserModel) {
-            Log.d(TAG, "startChattingActivity()");
+        void searchOrCreateRoom(final int position, final UserModel userModel, final UserModel destinationUserModel) {
+            Log.d(TAG, "searchOrCreateRoom()");
 
             // 내가 포함된 채팅방을 검색
             FirebaseDatabase.getInstance().getReference().child("rooms").orderByChild("users/"+userModel.uid+"/uid")
                     .equalTo(userModel.uid).addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    String chatRoomUid = null;
+                    String chatRoomId = null;
 
                     // 조건에 맞는 검색 결과가 없으면 dataSnapshot.getChildrenCount()가 0 이 됨
-                    Log.d(TAG, "startChattingActivity() > onDataChange() dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount() +
+                    Log.d(TAG, "searchOrCreateRoom() > onDataChange() dataSnapshot.getChildrenCount()=" + dataSnapshot.getChildrenCount() +
                             ", destinationUid=" + destinationUserModel.uid);
 
                     for (DataSnapshot item : dataSnapshot.getChildren()) {
@@ -177,17 +188,25 @@ public class PeopleFragment extends Fragment{
                         Log.d(TAG, roomModel.toString());
                         // 내가 선택한 상대방이 있는 1:1 채팅방
                         if (roomModel.users.containsKey(destinationUserModel.uid) && roomModel.users.size() == 2) {
-                            chatRoomUid = item.getKey();    // 방 ID
-                            Log.d(TAG, "startChattingActivity() > onDataChange() > 검색 chatRoomUid=" + chatRoomUid);
+                            chatRoomId = item.getKey();    // 방 ID
+                            Log.d(TAG, "searchOrCreateRoom() > onDataChange() > 검색 chatRoomUid=" + chatRoomId);
+
+                            // TODO: users의 최신 데이터로 rooms/./users를 업데이트
+                            // 푸시토큰의 값이 바뀔 수 있으므로 업데이트 필요
+//                            for(String tmpUid: roomModel.users.keySet()) {
+//                                roomModel.users.put(tmpUid, allUserModels.get(tmpUid));
+//                            }
+
+                            startMessageActivity(position, chatRoomId, roomModel);
                             break;
                         }
                     }
 
-                    if( chatRoomUid == null ) {
-                        final String roomId = FirebaseDatabase.getInstance().getReference().child("rooms").push().getKey();
-                        final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(roomId).push().getKey();
+                    if( chatRoomId == null ) {
+                        chatRoomId = FirebaseDatabase.getInstance().getReference().child("rooms").push().getKey();
+                        final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(chatRoomId).push().getKey();
                         String initMessage = destinationUserModel.userName + "을 초대합니다.";
-                        RoomModel roomModel = new RoomModel();
+                        final RoomModel roomModel = new RoomModel();
                         roomModel.descTimestamp = Long.MAX_VALUE - System.currentTimeMillis();
                         roomModel.lastMessage = initMessage;
 
@@ -203,14 +222,17 @@ public class PeopleFragment extends Fragment{
                         messageModel.readUsers.put(destinationUserModel.uid, false);
 
                         Map<String, Object> childUpdates = new HashMap<>();
-                        childUpdates.put("/rooms/" + roomId, roomModel.toMap());
-                        childUpdates.put("/messages/" + roomId + "/" + chattingId, messageModel.toMap());
+                        childUpdates.put("/rooms/" + chatRoomId, roomModel.toMap());
+                        childUpdates.put("/messages/" + chatRoomId + "/" + chattingId, messageModel.toMap());
 
+                        final String finalChatRoomId = chatRoomId;
                         FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
                                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                                     @Override
                                     public void onSuccess(Void aVoid) {
-                                        Log.d(TAG, "startChattingActivity() > onSuccess() > 생성 roomId=" + roomId);
+                                        Log.d(TAG, "searchOrCreateRoom() > onSuccess() > 생성 roomId=" + finalChatRoomId);
+
+                                        startMessageActivity(position, finalChatRoomId, roomModel);
                                     }
                                 });
                     }
@@ -218,7 +240,7 @@ public class PeopleFragment extends Fragment{
 
                 @Override
                 public void onCancelled(@NonNull DatabaseError databaseError) {
-                    Log.d(TAG, "startChattingActivity() > onCancelled()");
+                    Log.d(TAG, "searchOrCreateRoom() > onCancelled()");
                 }
             });
         }

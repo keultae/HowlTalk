@@ -107,7 +107,7 @@ public class ChatFragment extends Fragment {
             // 모든 값이 검색됨, uid가 null 값이 가장 앞에 나오고 uid 값이 true이면 키 순서로 정렬
 //            FirebaseDatabase.getInstance().getReference().child("chatrooms").orderByChild("users/"+uid)
             // uid 키의 값이 모두 true이므로 uid가 있는 값만 검색됨
-            FirebaseDatabase.getInstance().getReference().child("rooms").orderByChild("user/uids/"+uid).equalTo(true)
+            FirebaseDatabase.getInstance().getReference().child("rooms").orderByChild("users/"+uid+"/uid").equalTo(uid)
                     .addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
@@ -120,16 +120,12 @@ public class ChatFragment extends Fragment {
                                 Log.d(TAG, "ChatRecyclerViewAdapter() > item.getKey()=" + item.getKey());
 
                                 // 본인이 포함된 채팅방만 보여줌
-                                if(roomModel.user.uids.get(uid) != null) {
+//                                if(roomModel.users.get(uid) != null) {
                                     roomModels.add(roomModel);
                                     keys.add(item.getKey());
-                                }
+//                                }
                             }
-
-                            // 첫번째와 마지막 값을 바꿈
-//                            ChatModel cm = chatModels.get(0);
-//                            chatModels.set(0, chatModels.get(chatModels.size()-1));
-//                            chatModels.set(chatModels.size()-1, cm);
+                            // 채팅 메시지가 최신인 채팅룸을 제일 먼저 표시
                             Collections.sort(roomModels, new Descending());
                             notifyDataSetChanged();
                         }
@@ -164,7 +160,8 @@ public class ChatFragment extends Fragment {
 
             Log.d(TAG, "onBindViewHolder() > position=" + position);
 
-            for(String key : roomModels.get(position).user.names.keySet()) {
+            /*
+            for(String key : roomModels.get(position).users.keySet()) {
                 if(!uid.equals(key)) {
                     destinationUid = key;
                 }
@@ -185,6 +182,15 @@ public class ChatFragment extends Fragment {
 
                         }
                     });
+                    */
+            // TODO: 1:N 채팅이면 여러사람의 이미지를 하나로 합쳐서 보여주도록 수정 필요
+            for(String tmpUid: roomModels.get(position).users.keySet()) {
+                Glide.with(customViewHolder.itemView.getContext())
+                        .load(roomModels.get(position).users.get(tmpUid).profileImageUrl)
+                        .apply(new RequestOptions().circleCrop())
+                        .into(customViewHolder.imageView);
+                break;
+            }
 
             customViewHolder.textView_title.setText(roomModels.get(position).toNames(uid));
             customViewHolder.textView_last_message.setText(roomModels.get(position).lastMessage);
@@ -197,14 +203,41 @@ public class ChatFragment extends Fragment {
             customViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Intent intent = null;
-                    intent = new Intent(v.getContext(), GroupMessageActivity.class);
-                    intent.putExtra("chatRoomId", roomModels.get(position).roomId);
+                    final int[] updateCount = {roomModels.get(position).users.size()};
 
-                    ActivityOptions activityOptions = null;
-                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                        activityOptions = ActivityOptions.makeCustomAnimation(v.getContext(), R.anim.fromright, R.anim.toleft);
-                        startActivity(intent, activityOptions.toBundle());
+                    for(String tmpUid: roomModels.get(position).users.keySet()) {
+                        Log.d(TAG, "tmpUid=" + tmpUid);
+                        FirebaseDatabase.getInstance().getReference().child("users").child(tmpUid)
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                        UserModel userModel = dataSnapshot.getValue(UserModel.class);
+                                        Log.d(TAG, "*** userModel=" + userModel.toString());
+                                        roomModels.get(position).users.put(userModel.uid, userModel);
+
+                                        --updateCount[0];
+
+                                        if(0 == updateCount[0]) {
+                                            Log.d(TAG, "유저 정보 업데이트 완료");
+
+                                            Intent intent = null;
+                                            intent = new Intent(getActivity().getBaseContext(), GroupMessageActivity.class);
+                                            intent.putExtra("chatRoomId", roomModels.get(position).roomId);
+                                            intent.putExtra("roomModel", roomModels.get(position));
+
+                                            ActivityOptions activityOptions = null;
+                                            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                                                activityOptions = ActivityOptions.makeCustomAnimation(getActivity().getBaseContext(), R.anim.fromright, R.anim.toleft);
+                                                startActivity(intent, activityOptions.toBundle());
+                                            }
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                    }
+                                });
                     }
                 }
             });

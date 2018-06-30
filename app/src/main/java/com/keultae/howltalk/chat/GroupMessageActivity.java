@@ -41,6 +41,7 @@ import com.keultae.howltalk.model.ChatModel;
 import com.keultae.howltalk.model.DataMessageModel;
 import com.keultae.howltalk.model.MessageModel;
 import com.keultae.howltalk.model.NotificationModel;
+import com.keultae.howltalk.model.RoomModel;
 import com.keultae.howltalk.model.UserModel;
 
 import java.io.BufferedReader;
@@ -75,19 +76,20 @@ import okhttp3.Response;
 public class GroupMessageActivity extends AppCompatActivity {
     private final String TAG = "GroupMessageActivity";
 
-    Map<String, UserModel> users = new HashMap<>();
-    String chatRoomId;
-    String uid;
-    EditText editText;
+//    Map<String, UserModel> users = new HashMap<>();
+    private String chatRoomId;
+    private RoomModel roomModel;
+
+    private String uid;
+    private EditText editText;
 
     private DatabaseReference databaseReference;
     private ChildEventListener valueEventListener;
     private RecyclerView recyclerView;
     private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
 
-//    List<ChatModel.Comment> comments = new ArrayList<>();
-    List<MessageModel> messages = new ArrayList<>();
-    int peopleCount = 0;
+    private List<MessageModel> messages = new ArrayList<>();
+//    private int peopleCount = 0;
     private RelativeLayout relativeLayout;
 
     @Override
@@ -95,35 +97,46 @@ public class GroupMessageActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_group_message);
 
+        editText = (EditText)findViewById(R.id.groupMessageActivity_editText);
+
         // sendFcm() 호출시 네트웍 에러를 해결하기 위한 코드
         if (android.os.Build.VERSION.SDK_INT > 9)
         {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
-
         chatRoomId = getIntent().getStringExtra("chatRoomId");
+        roomModel = (RoomModel) getIntent().getSerializableExtra("roomModel");
+
         uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        editText = (EditText)findViewById(R.id.groupMessageActivity_editText);
-        Log.d(TAG, "onCreate() uid=" + uid + ", chatRoomId=" + chatRoomId);
 
-        // TODO: 전체 유저를 모두 가져오는 것을 채팅방에 관련된 사용자 데이터만 가져오도록 수정 필요
-        FirebaseDatabase.getInstance().getReference().child("users")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                        for(DataSnapshot item: dataSnapshot.getChildren()) {
-                            users.put(item.getKey(), item.getValue(UserModel.class));
-                            Log.d(TAG, "onCreate() item.getKey()=" + item.getKey() + ", item.getValue(UserModel.class)=" + item.getValue(UserModel.class).toString());
+        if(roomModel != null) {
+            Log.d(TAG, "onCreate() uid=" + uid + ", chatRoomId=" + chatRoomId + ", roomModel=" + roomModel.toString());
+        } else {
+            Log.d(TAG, "onCreate() uid=" + uid + ", chatRoomId=" + chatRoomId + ", roomModel=null");
+        }
+
+        if(roomModel != null) {
+            // 앱에서 호출하면 rooomModel를 넘겨줌
+            init();
+        } else {
+            // 푸시 메시지로 받았을때는 roomModel이 없음
+            FirebaseDatabase.getInstance().getReference().child("rooms").child(chatRoomId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                            Log.d(TAG, "onCreate() > onDataChange() ");
+                            roomModel = dataSnapshot.getValue(RoomModel.class);
+
+                            init();
                         }
-                        init();
-                    }
 
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                    }
-                });
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError databaseError) {
+                            Log.d(TAG, "onCancelled() databaseError="+databaseError.toString());
+                        }
+                    });
+        }
     }
 
     boolean[] keyboardShow = {false};
@@ -163,53 +176,41 @@ public class GroupMessageActivity extends AppCompatActivity {
 
             @Override
             public void onClick(View v) {
-                // 채팅방의 유저들을 구함
-                FirebaseDatabase.getInstance().getReference().child("rooms")
-                        .child(chatRoomId).child("user").child("names").addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                        Log.d(TAG, "onClick() > onDataChange()");
-                        names = (Map<String, String>) dataSnapshot.getValue();
+                Log.d(TAG, "onClick()");
 
-                        // 채팅방 멤버에서 본인을 삭제
-                        names.remove(uid);
+                MessageModel messageModel = new MessageModel();
+                messageModel.uid = uid;
+                messageModel.message = editText.getText().toString();
+                messageModel.timestamp = ServerValue.TIMESTAMP;
+                for(String tmpUid: roomModel.users.keySet()) {
+                    if(!tmpUid.equals(uid)) {
+                        messageModel.readUsers.put(tmpUid, false);
+                    }
+                }
 
-                        MessageModel messageModel = new MessageModel();
-                        messageModel.uid = uid;
-                        messageModel.message = editText.getText().toString();
-                        messageModel.timestamp = ServerValue.TIMESTAMP;
-                        for(String key: names.keySet()) {
-                            messageModel.readUsers.put(key, false);
-                        }
+                final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(chatRoomId).push().getKey();
 
-                        final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(chatRoomId).push().getKey();
+                Map<String, Object> childUpdates = new HashMap<>();
+                childUpdates.put("/rooms/" + chatRoomId + "/descTimestamp", Long.MAX_VALUE - System.currentTimeMillis() );
+                childUpdates.put("/rooms/" + chatRoomId + "/lastMessage",  messageModel.message);
+                childUpdates.put("/messages/" + chatRoomId + "/" + chattingId, messageModel.toMap());
 
-                        Map<String, Object> childUpdates = new HashMap<>();
-                        childUpdates.put("/rooms/" + chatRoomId + "/descTimestamp", Long.MAX_VALUE - System.currentTimeMillis() );
-                        childUpdates.put("/rooms/" + chatRoomId + "/lastMessage",  messageModel.message);
-                        childUpdates.put("/messages/" + chatRoomId + "/" + chattingId, messageModel.toMap());
-
-                        FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
-                                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                                    @Override
-                                    public void onSuccess(Void aVoid) {
-                                        Log.d(TAG, "메시지 저장 > onSuccess() > 생성 chattingId=" + chattingId);
-                                        // 채팅방 멤버들에게 메시지 전송
-                                        for(String item: names.keySet()) {
-//                                            sendGcm(users.get(item).pushToken);
-                                            sendFcm(chatRoomId,  editText.getText().toString(), users.get(item).pushToken);
-                                        }
-
-                                        editText.setText("");
+                FirebaseDatabase.getInstance().getReference().updateChildren(childUpdates)
+                        .addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void aVoid) {
+                                Log.d(TAG, "메시지 저장 > onSuccess() > 생성 chattingId=" + chattingId);
+                                // 채팅방 멤버들에게 메시지 전송
+                                for(String tmpUid: roomModel.users.keySet()) {
+                                    if(!tmpUid.equals(uid)) {
+                                        // sendGcm(roomModel.users.get(tmpUid).pushToken);
+                                        sendFcm(chatRoomId, editText.getText().toString(), roomModel.users.get(tmpUid).pushToken);
                                     }
-                                });
-                    }
+                                }
 
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError databaseError) {
-                        Log.d(TAG, "onClick() > onCancelled()");
-                    }
-                });
+                                editText.setText("");
+                            }
+                        });
             }
         });
     }
@@ -264,8 +265,6 @@ public class GroupMessageActivity extends AppCompatActivity {
             dataMessageModel.data.senderName = name;
             dataMessageModel.data.message = message;
             dataMessageModel.data.chatRoomId = chatRoomId;
-            // 푸시를 전송하는 기기의 UID를 보내줘야 수신하는 기기에서 상대편을 확인할 수 있다.
-//            dataMessageModel.data.destinationUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
             json = gson.toJson(dataMessageModel);
 
             String url = "https://fcm.googleapis.com/fcm/send";
@@ -408,11 +407,11 @@ public class GroupMessageActivity extends AppCompatActivity {
                 // 상대방이 보낸 메시지
                 messageViewHolder.linearLayout_destination.setVisibility(View.VISIBLE);
                 Glide.with(holder.itemView.getContext())
-                        .load(users.get(messages.get(position).uid).profileImageUrl)
+                        .load(roomModel.users.get(messages.get(position).uid).profileImageUrl)
                         .apply(new RequestOptions().circleCrop())
                         .into(messageViewHolder.imageView_profile);
 
-                messageViewHolder.textView_name.setText(users.get(messages.get(position).uid).userName);
+                messageViewHolder.textView_name.setText(roomModel.users.get(messages.get(position).uid).userName);
 
                 messageViewHolder.textView_message.setText(messages.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.leftbubble);
@@ -435,7 +434,7 @@ public class GroupMessageActivity extends AppCompatActivity {
             // 다른 사람이 작성한 메시지에 대해서 읽음 표시를 하면 onChildChanged() 이벤트가 발생 한다.
             if( !messages.get(position).uid.equals(uid) ) {
                 if (((boolean) messages.get(position).readUsers.get(uid)) == false) {
-                    FirebaseDatabase.getInstance().getReference().child("chatrooms").child(chatRoomId).child("comments")
+                    FirebaseDatabase.getInstance().getReference().child("messages").child(chatRoomId)
                             .child(messages.get(position).messageId).child("readUsers").child(uid).setValue(true)
                             .addOnCompleteListener(new OnCompleteListener<Void>() {
                                 @Override
