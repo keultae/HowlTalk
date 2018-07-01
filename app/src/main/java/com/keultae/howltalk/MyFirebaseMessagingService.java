@@ -1,25 +1,24 @@
 package com.keultae.howltalk;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
-import android.os.PowerManager;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import com.keultae.howltalk.chat.GroupMessageActivity;
-import com.keultae.howltalk.chat.MessageActivity;
-import com.keultae.howltalk.model.NotificationModel;
+
+import java.util.Iterator;
+import java.util.List;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "MyFirebaseMsgService";
@@ -28,40 +27,67 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(RemoteMessage remoteMessage) {
         Log.d(TAG, "onMessageReceived()");
 
+//        dump(getApplication().getBaseContext());
+
         if (remoteMessage.getData().size() > 0) {
-            Log.d(TAG, "message data payload: " + remoteMessage.getData());
+            Log.d(TAG, "onMessageReceived() > message data payload: " + remoteMessage.getData());
+
             String senderName = remoteMessage.getData().get("senderName").toString();
             String message = remoteMessage.getData().get("message").toString();
-            String destinationUid = null;
-            String chatRoomId = null;
+            String roomId = remoteMessage.getData().get("roomId").toString();
 
-            if(remoteMessage.getData().get("destinationUid") != null) {
-                destinationUid = remoteMessage.getData().get("destinationUid").toString();
+            // 최상위 액티비티가 GroupMessageActivity이면 알림 리스트에 푸시가 왔음을 표시하지 않음.
+            ActivityManager activity_manager = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+            List<ActivityManager.RunningTaskInfo> task_info = activity_manager.getRunningTasks(9999);
+
+            if(!task_info.get(0).topActivity.getClassName().endsWith("GroupMessageActivity")) {
+                sendNotification(senderName, message, roomId);
+            } else {
+                Log.d(TAG, "onMessageReceived() 최상위 액티비티가 GroupMessageActivity 이므로 알림 메시지를 표시하지 않음.");
             }
-
-            if(remoteMessage.getData().get("chatRoomId") != null) {
-                chatRoomId = remoteMessage.getData().get("chatRoomId").toString();
-            }
-
-            sendNotification(senderName, message, destinationUid, chatRoomId);
         }
     }
 
-    private void sendNotification(String title, String text, String destinationUid, String chatRoomId) {
+    /**
+     * 앱의 백 스택 정보와 액티비티 정보를 가져옴
+     */
+    public void dump(Context context) {
+        StringBuffer sb = new StringBuffer();
+
+        // 프로그라운드와 백그라운드에서 실행 중인 앱의 최상위 액티비티 정보를 가져온다.
+        ActivityManager activity_manager = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> task_info = activity_manager.getRunningTasks(9999);
+        for(int i=0; i<task_info.size(); i++) {
+            sb.append("[" + i + "] activity:"+ task_info.get(i).topActivity.getPackageName() + " >> " + task_info.get(i).topActivity.getClassName());
+            sb.append("\r\n");
+        }
+
+        // 앱이 실행 됐을때 기본 액티비티와 최상위 액티비티 정보, 백스택의 액티비티 개수를 가져온다.
+        // 중간 액티비티 목록을 확인하지는 못함
+        ActivityManager m = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> runningTaskInfoList = m.getRunningTasks(10);
+        Iterator<ActivityManager.RunningTaskInfo> itr = runningTaskInfoList.iterator();
+        while (itr.hasNext()) {
+            ActivityManager.RunningTaskInfo runningTaskInfo = (ActivityManager.RunningTaskInfo) itr.next();
+            int id = runningTaskInfo.id;
+            CharSequence desc = runningTaskInfo.description;
+            int numOfActivities = runningTaskInfo.numActivities;
+            String baseActivity = runningTaskInfo.baseActivity.getShortClassName();
+            String topActivity = runningTaskInfo.topActivity.getShortClassName();
+
+            sb.append("id=" +id + ", desc="+desc+ ", numOfActivities="+numOfActivities+
+                    ", topActivity="+topActivity + ", baseActivity=" + baseActivity);
+            sb.append("\r\n");
+        }
+        Log.d(TAG, "dump()\r\n" + sb.toString());
+    }
+
+    private void sendNotification(String title, String text, String roomId) {
         Intent intent = null;
 
-        if( destinationUid != null ) {
-            // 1:1 채팅 방
-            Log.d(TAG, "sendNotification() destinationUid: " + destinationUid);
-//            intent = new Intent(this, MessageActivity.class);
-            intent = new Intent(this, MainActivity.class);
-            intent.putExtra("destinationUid", destinationUid);
-        } else {
-            // 단체 채팅 방
-            Log.d(TAG, "sendNotification() chatRoomId: " + chatRoomId);
-            intent = new Intent(this, GroupMessageActivity.class);
-            intent.putExtra("chatRoomId", chatRoomId);
-        }
+        Log.d(TAG, "sendNotification() roomId=" + roomId + ", title="+title+", text="+text);
+        intent = new Intent(this, MainActivity.class);
+        intent.putExtra("roomId", roomId);
 
         /**
          * 호출되는 액티비티가 태스크의 최상단에 있으면 새로운 인스턴스를 생성하지 않습니다.

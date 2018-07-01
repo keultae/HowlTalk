@@ -28,12 +28,12 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.keultae.howltalk.R;
 import com.keultae.howltalk.chat.GroupMessageActivity;
-import com.keultae.howltalk.chat.MessageActivity;
-import com.keultae.howltalk.model.ChatModel;
 import com.keultae.howltalk.model.MessageModel;
 import com.keultae.howltalk.model.RoomModel;
 import com.keultae.howltalk.model.UserModel;
 
+import java.io.Serializable;
+import java.security.acl.Group;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,8 +42,12 @@ import java.util.Map;
 public class SelectFriendActivity extends AppCompatActivity {
     private final String TAG = "SelectFriendActivity";
 
-    RoomModel roomModel = new RoomModel();
+    private List<UserModel> userModelList = new ArrayList<>();
+    private Map<String, UserModel> userModelMap = new HashMap<>();
+
+    private RoomModel roomModel = new RoomModel();
     private UserModel userModel;
+    private Map<String, UserModel> chatRoomUserModels = new HashMap<>(); // 1:1 채팅방의 사용자
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,16 +69,18 @@ public class SelectFriendActivity extends AppCompatActivity {
                 final String chattingId = FirebaseDatabase.getInstance().getReference().child("messages").child(roomId).push().getKey();
 
                 StringBuilder sb = new StringBuilder();
-                for(String key: roomModel.users.keySet()) {
-                    sb.append(roomModel.users.get(key).userName);
+                for(String tmpUid: roomModel.users.keySet()) {
+                    sb.append(userModelMap.get(tmpUid).userName);
                     sb.append(",");
+                    chatRoomUserModels.put(tmpUid, userModelMap.get(tmpUid));
                 }
                 String initMessage = sb.toString().substring(0, sb.toString().length()-1)+ "을 초대합니다.";
+                roomModel.roomId = roomId;
                 roomModel.descTimestamp = Long.MAX_VALUE - System.currentTimeMillis();
                 roomModel.lastMessage = initMessage;
 
                 String uid = FirebaseAuth.getInstance().getUid();
-                roomModel.users.put(uid, userModel);
+                roomModel.users.put(uid, true);
 
                 MessageModel messageModel = new MessageModel();
                 messageModel.uid = uid;
@@ -99,6 +105,7 @@ public class SelectFriendActivity extends AppCompatActivity {
                                 Intent intent = new Intent(v.getContext(), GroupMessageActivity.class);
                                 intent.putExtra("chatRoomId", roomId);
                                 intent.putExtra("roomModel", roomModel);
+                                intent.putExtra("chatRoomUserModels", (Serializable) chatRoomUserModels);
 
                                 ActivityOptions activityOptions = null;
                                 if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -113,16 +120,14 @@ public class SelectFriendActivity extends AppCompatActivity {
     }
 
     class SelectFriendRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        List<UserModel> userModels;
-
         public SelectFriendRecyclerViewAdapter() {
-            userModels = new ArrayList<>();
+
             final String myUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
             FirebaseDatabase.getInstance().getReference().child("users").addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    userModels.clear();
+                    userModelList.clear();
                     for(DataSnapshot snapshot: dataSnapshot.getChildren()) {
                         Log.d("PeopleFragment", "snapshot=" + snapshot.toString());
                         UserModel userModel = snapshot.getValue(UserModel.class);
@@ -130,7 +135,8 @@ public class SelectFriendActivity extends AppCompatActivity {
                         if(userModel.uid.equals(myUid)) {
                             continue;
                         }
-                        userModels.add(userModel);
+                        userModelList.add(userModel);
+                        userModelMap.put(snapshot.getKey(), userModel);
                     }
                     notifyDataSetChanged();
                 }
@@ -154,37 +160,40 @@ public class SelectFriendActivity extends AppCompatActivity {
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, final int position) {
             Glide.with
                     (holder.itemView.getContext())
-                    .load(userModels.get(position).profileImageUrl)
+                    .load(userModelList.get(position).profileImageUrl)
                     .apply(new RequestOptions().circleCrop())
                     .into(((CustomViewHolder)holder).imageView);
 
-            ((CustomViewHolder)holder).textView.setText(userModels.get(position).userName);
+            ((CustomViewHolder)holder).textView.setText(userModelList.get(position).userName);
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    Intent intent = new Intent(view.getContext(), MessageActivity.class);
-                    intent.putExtra("destinationUid", userModels.get(position).uid);
+                    Log.d(TAG, "onBindViewHolder() > onClick()");
+                    /*
+                    Intent intent = new Intent(view.getContext(), GroupMessageActivity.class);
+                    intent.putExtra("roomId", roomModel.roomId);
 
                     ActivityOptions activityOptions = null;
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
                         activityOptions = ActivityOptions.makeCustomAnimation(view.getContext(), R.anim.fromright, R.anim.toleft);
                         startActivity(intent, activityOptions.toBundle());
                     }
+                    */
                 }
             });
 
-            if(userModels.get(position).comment != null) {
-                ((CustomViewHolder)holder).textView_comment.setText(userModels.get(position).comment);
+            if(userModelList.get(position).comment != null) {
+                ((CustomViewHolder)holder).textView_comment.setText(userModelList.get(position).comment);
             }
             ((CustomViewHolder) holder).checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     // 체크 된 상태
                     if(isChecked) {
-                        roomModel.users.put(userModels.get(position).uid, userModels.get(position));
+                        roomModel.users.put(userModelList.get(position).uid, true);
                     } else {
-                        roomModel.users.remove(userModels.get(position).uid);
+                        roomModel.users.remove(userModelList.get(position).uid);
                     }
                 }
             });
@@ -192,7 +201,7 @@ public class SelectFriendActivity extends AppCompatActivity {
 
         @Override
         public int getItemCount() {
-            return userModels.size();
+            return userModelList.size();
         }
 
         private class CustomViewHolder extends RecyclerView.ViewHolder {
