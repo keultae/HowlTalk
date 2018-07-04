@@ -130,7 +130,7 @@ public class PeopleFragment extends Fragment{
 
             if(userModelList.get(position).comment != null) {
                 customViewHolder.textView_comment.setText(userModelList.get(position).comment);
-                customViewHolder.textView_comment.setBackgroundResource(R.drawable.rightbubble);
+//                customViewHolder.textView_comment.setBackgroundResource(R.drawable.rightbubble);
             }
 
             holder.itemView.setOnClickListener(new View.OnClickListener() {

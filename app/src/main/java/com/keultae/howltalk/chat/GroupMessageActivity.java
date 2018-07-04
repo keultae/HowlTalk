@@ -429,7 +429,7 @@ public class GroupMessageActivity extends AppCompatActivity {
 
                 messageViewHolder.textView_message.setText(messageModelList.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.rightbubble);
-                messageViewHolder.textView_message.setTextSize(25);
+//                messageViewHolder.textView_message.setTextSize(25);
 
                 messageViewHolder.linearLayout_main.setGravity(Gravity.RIGHT);
 
@@ -446,7 +446,7 @@ public class GroupMessageActivity extends AppCompatActivity {
 
                 messageViewHolder.textView_message.setText(messageModelList.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.leftbubble);
-                messageViewHolder.textView_message.setTextSize(25);
+//                messageViewHolder.textView_message.setTextSize(25);
 
                 messageViewHolder.linearLayout_main.setGravity(Gravity.LEFT);
 
