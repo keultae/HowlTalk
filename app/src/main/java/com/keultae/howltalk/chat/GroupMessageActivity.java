@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
@@ -353,7 +354,8 @@ public class GroupMessageActivity extends AppCompatActivity {
     }
 
     class GroupMessageRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+//        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("a hh:mm", Locale.KOREA);
 
         public GroupMessageRecyclerViewAdapter() {
             Log.d(TAG, "GroupMessageRecyclerViewAdapter() > roomId=" + roomId);
@@ -420,20 +422,25 @@ public class GroupMessageActivity extends AppCompatActivity {
 
             GroupMessageViewHolder messageViewHolder = (GroupMessageViewHolder) holder;
 
-            messageViewHolder.textView_readCounter_left.setVisibility(View.INVISIBLE);
-            messageViewHolder.textView_readCounter_right.setVisibility(View.INVISIBLE);
+            long unixTime = (long)messageModelList.get(position).timestamp;
+            Date date = new Date(unixTime);
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
+            String time = simpleDateFormat.format(date);
 
             if(messageModelList.get(position).uid.equals(uid)) {
                 // 내가 보낸 메시지
                 messageViewHolder.linearLayout_destination.setVisibility(View.INVISIBLE);
+                messageViewHolder.linearLayout_left.setVisibility(View.VISIBLE);
+                messageViewHolder.linearLayout_right.setVisibility(View.GONE);
+                messageViewHolder.textView_name.setVisibility(View.INVISIBLE);
 
                 messageViewHolder.textView_message.setText(messageModelList.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.rightbubble);
-//                messageViewHolder.textView_message.setTextSize(25);
 
                 messageViewHolder.linearLayout_main.setGravity(Gravity.RIGHT);
 
                 setReadCounter(position, messageViewHolder.textView_readCounter_left);
+                messageViewHolder.textView_timestamp_left.setText(time);
             } else {
                 // 상대방이 보낸 메시지
                 messageViewHolder.linearLayout_destination.setVisibility(View.VISIBLE);
@@ -441,22 +448,19 @@ public class GroupMessageActivity extends AppCompatActivity {
                         .load(roomUserModelMap.get(messageModelList.get(position).uid).profileImageUrl)
                         .apply(new RequestOptions().circleCrop())
                         .into(messageViewHolder.imageView_profile);
-
+                messageViewHolder.linearLayout_left.setVisibility(View.GONE);
+                messageViewHolder.linearLayout_right.setVisibility(View.VISIBLE);
+                messageViewHolder.textView_name.setVisibility(View.VISIBLE);
                 messageViewHolder.textView_name.setText(roomUserModelMap.get(messageModelList.get(position).uid).userName);
 
                 messageViewHolder.textView_message.setText(messageModelList.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.leftbubble);
-//                messageViewHolder.textView_message.setTextSize(25);
 
                 messageViewHolder.linearLayout_main.setGravity(Gravity.LEFT);
 
                 setReadCounter(position, messageViewHolder.textView_readCounter_right);
+                messageViewHolder.textView_timestamp_right.setText(time);
             }
-            long unixTime = (long)messageModelList.get(position).timestamp;
-            Date date = new Date(unixTime);
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
-            String time = simpleDateFormat.format(date);
-            messageViewHolder.textView_timestamp.setText(time);
         }
 
         void setReadCounter(final int position, final TextView textView) {
@@ -504,7 +508,10 @@ public class GroupMessageActivity extends AppCompatActivity {
             public ImageView imageView_profile;
             public LinearLayout linearLayout_destination;
             public LinearLayout linearLayout_main;
-            public TextView textView_timestamp;
+            public LinearLayout linearLayout_left;
+            public LinearLayout linearLayout_right;
+            public TextView textView_timestamp_left;
+            public TextView textView_timestamp_right;
             public TextView textView_readCounter_left;
             public TextView textView_readCounter_right;
 
@@ -513,9 +520,16 @@ public class GroupMessageActivity extends AppCompatActivity {
                 textView_message = (TextView)view.findViewById(R.id.messageItem_textview_message);
                 textView_name = (TextView)view.findViewById(R.id.messageItem_textview_name);
                 imageView_profile = (ImageView)view.findViewById(R.id.messageItem_imageview_profile);
+
                 linearLayout_destination = (LinearLayout)view.findViewById(R.id.messageItem_linearlayout_destination);
                 linearLayout_main = (LinearLayout)view.findViewById(R.id.messageItem_linearlayout_main);
-                textView_timestamp = (TextView)view.findViewById(R.id.messageItem_textview_timestamp);
+
+                linearLayout_left = (LinearLayout)view.findViewById(R.id.messageItem_linearlayout_left);
+                linearLayout_right = (LinearLayout)view.findViewById(R.id.messageItem_linearlayout_right);
+
+                textView_timestamp_left = (TextView)view.findViewById(R.id.messageItem_textview_timestamp_left);
+                textView_timestamp_right = (TextView)view.findViewById(R.id.messageItem_textview_timestamp_right);
+
                 textView_readCounter_left = (TextView)view.findViewById(R.id.messageItem_textview_readCounter_left);
                 textView_readCounter_right = (TextView)view.findViewById(R.id.messageItem_textview_readCounter_right);
             }
