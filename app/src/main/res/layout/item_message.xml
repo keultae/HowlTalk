@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:id="@+id/messageItem_linearlayout_main"
@@ -8,11 +8,38 @@
     android:layout_marginRight="4dp">
 
     <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:layout_marginTop="10dp"
+            android:id="@+id/divider1"
+            android:layout_width="50dp"
+            android:layout_weight="1"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
+        <TextView
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="2018년 7월 10일 화요일"
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+        <View
+            android:layout_marginTop="10dp"
+            android:id="@+id/divider2"
+            android:layout_width="50dp"
+            android:layout_weight="1"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/messageItem_linearlayout_destination"
         android:orientation="horizontal"
         android:gravity="center"
         android:layout_width="wrap_content"
-        android:layout_height="58dp">
+        android:layout_height="78dp">
         <ImageView
             android:id="@+id/messageItem_imageview_profile"
             android:layout_marginTop="4dp"
