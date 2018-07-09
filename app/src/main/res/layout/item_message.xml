@@ -1,10 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal" android:layout_width="match_parent"
+    android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:id="@+id/messageItem_linearlayout_main"
     android:layout_marginLeft="4dp"
     android:layout_marginRight="4dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <View
+            android:layout_marginTop="10dp"
+            android:id="@+id/divider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
+        <TextView
+            android:background="@color/colorPrimary"
+            android:layout_gravity="center"
+            android:text="2018년 7월 10일 화요일"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <View
+            android:layout_marginTop="10dp"
+            android:id="@+id/divider1"
+            android:layout_width="50dp"
+            android:layout_weight="1"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
+        <TextView
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:background="@color/colorPrimary"
+            android:paddingLeft="0dp"
+            android:paddingRight="0dp"
+            android:layout_marginLeft="0dp"
+            android:layout_marginRight="0dp"
+            android:text="2018년 7월 10일 화요일"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+        <View
+            android:layout_marginTop="10dp"
+            android:id="@+id/divider2"
+            android:layout_width="50dp"
+            android:layout_weight="1"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/messageItem_linearlayout_destination"
