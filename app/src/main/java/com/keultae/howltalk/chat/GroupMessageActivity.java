@@ -355,7 +355,8 @@ public class GroupMessageActivity extends AppCompatActivity {
 
     class GroupMessageRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 //        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("a hh:mm", Locale.KOREA);
+        SimpleDateFormat simpleDateFormatTime = new SimpleDateFormat("a hh:mm", Locale.KOREA);
+        SimpleDateFormat simpleDateFormatDate = new SimpleDateFormat("yyyy년 MM월 dd일 E요일", Locale.KOREA);
 
         public GroupMessageRecyclerViewAdapter() {
             Log.d(TAG, "GroupMessageRecyclerViewAdapter() > roomId=" + roomId);
@@ -416,6 +417,7 @@ public class GroupMessageActivity extends AppCompatActivity {
             return new GroupMessageViewHolder(view);
         }
 
+        String prevDate = "";
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
             Log.d(TAG, "onBindViewHolder() position=" + position + ", message=" + messageModelList.get(position).message + ", messageId=" + messageModelList.get(position).messageId);
@@ -424,15 +426,28 @@ public class GroupMessageActivity extends AppCompatActivity {
 
             long unixTime = (long)messageModelList.get(position).timestamp;
             Date date = new Date(unixTime);
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
-            String time = simpleDateFormat.format(date);
+            simpleDateFormatTime.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));
+            String time = simpleDateFormatTime.format(date);
+            String currentDate = simpleDateFormatDate.format(date);
+
+//            if(null == prevDate) {
+//                prevDate = currentDate;
+//            }
+
+            if(prevDate.equals(currentDate)) {
+                messageViewHolder.linearLayout_date.setVisibility(View.GONE);
+            } else {
+                messageViewHolder.linearLayout_date.setVisibility(View.VISIBLE);
+                messageViewHolder.textView_date.setText(currentDate);
+            }
+            prevDate = currentDate;
 
             if(messageModelList.get(position).uid.equals(uid)) {
                 // 내가 보낸 메시지
-                messageViewHolder.linearLayout_destination.setVisibility(View.INVISIBLE);
+                messageViewHolder.imageView_profile.setVisibility(View.GONE);
                 messageViewHolder.linearLayout_left.setVisibility(View.VISIBLE);
                 messageViewHolder.linearLayout_right.setVisibility(View.GONE);
-                messageViewHolder.textView_name.setVisibility(View.INVISIBLE);
+                messageViewHolder.textView_name.setVisibility(View.GONE);
 
                 messageViewHolder.textView_message.setText(messageModelList.get(position).message);
                 messageViewHolder.textView_message.setBackgroundResource(R.drawable.rightbubble);
@@ -443,7 +458,7 @@ public class GroupMessageActivity extends AppCompatActivity {
                 messageViewHolder.textView_timestamp_left.setText(time);
             } else {
                 // 상대방이 보낸 메시지
-                messageViewHolder.linearLayout_destination.setVisibility(View.VISIBLE);
+                messageViewHolder.imageView_profile.setVisibility(View.VISIBLE);
                 Glide.with(holder.itemView.getContext())
                         .load(roomUserModelMap.get(messageModelList.get(position).uid).profileImageUrl)
                         .apply(new RequestOptions().circleCrop())
@@ -503,6 +518,8 @@ public class GroupMessageActivity extends AppCompatActivity {
         }
 
         private class GroupMessageViewHolder extends RecyclerView.ViewHolder {
+            public LinearLayout linearLayout_date;
+            public TextView textView_date;
             public TextView textView_message;
             public TextView textView_name;
             public ImageView imageView_profile;
@@ -517,6 +534,9 @@ public class GroupMessageActivity extends AppCompatActivity {
 
             public GroupMessageViewHolder(View view) {
                 super(view);
+                linearLayout_date = (LinearLayout)view.findViewById(R.id.messageItem_linearlayout_date);
+                textView_date = (TextView)view.findViewById(R.id.messageItem_textview_date);
+
                 textView_message = (TextView)view.findViewById(R.id.messageItem_textview_message);
                 textView_name = (TextView)view.findViewById(R.id.messageItem_textview_name);
                 imageView_profile = (ImageView)view.findViewById(R.id.messageItem_imageview_profile);
