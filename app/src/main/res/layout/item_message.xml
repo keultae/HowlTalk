@@ -80,23 +80,32 @@
                         android:layout_height="wrap_content"
                         android:visibility="visible"/>
                     <TextView
-                        android:text="2018/06/06 22:31"
+                        android:text="오전 06:31"
                         android:textSize="12dp"
                         android:textColor="@android:color/darker_gray"
                         android:id="@+id/messageItem_textview_timestamp_left"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                 </LinearLayout>
+
+                <!--디바이스별로 %를 기준으로 텍스트 가로 설정-->
+                <!--android:layout_weight=".50"  0.30 또는 0.50 또는 1 모두 결과는 같음-->
+                <!--android:layout_width="0dp"-->
+                <!--layout_width를 wrap_content로 지정하면 상대방 메시지를 표시할떄 우측의 안 읽은 건수와 시간이 보이지 않아서-->
+                <!--%로 지정하기 위해서 인터넷 검색하다 %로 지정했는데, 상대방 메시지 표시할때 우측의 안 읽은 건수와 시간이 보이는 결과를 얻음-->
+                <!--메시지를 최대한 표시하고 우측에 안 읽은 건수와 시간을 표시하는 내가 원하는 형태로 됨-->
                 <TextView
                     android:layout_marginTop="0dp"
                     android:text="message"
                     android:textSize="18dp"
                     android:id="@+id/messageItem_textview_message"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:paddingLeft="10dp"
                     android:paddingRight="10dp"
                     />
+
                 <LinearLayout
                     android:id="@+id/messageItem_linearlayout_right"
                     android:orientation="vertical"
@@ -107,14 +116,14 @@
                         android:id="@+id/messageItem_textview_readCounter_right"
                         android:text="1"
                         android:textColor="@android:color/holo_orange_light"
-                        android:textSize="12dp"
+                        android:textSize="9dp"
                         android:layout_margin="2dp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:visibility="visible"/>
                     <TextView
-                        android:text="2018/06/06 22:31"
-                        android:textSize="9dp"
+                        android:text="오전 06:31"
+                        android:textSize="12dp"
                         android:textColor="@android:color/darker_gray"
                         android:id="@+id/messageItem_textview_timestamp_right"
                         android:layout_width="wrap_content"

@@ -355,8 +355,8 @@ public class GroupMessageActivity extends AppCompatActivity {
 
     class GroupMessageRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 //        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
-        SimpleDateFormat simpleDateFormatTime = new SimpleDateFormat("a hh:mm", Locale.KOREA);
-        SimpleDateFormat simpleDateFormatDate = new SimpleDateFormat("yyyy년 MM월 dd일 E요일", Locale.KOREA);
+        SimpleDateFormat simpleDateFormatTime = new SimpleDateFormat("a h:m", Locale.KOREA);
+        SimpleDateFormat simpleDateFormatDate = new SimpleDateFormat("yyyy년 M월 d일 E요일", Locale.KOREA);
 
         public GroupMessageRecyclerViewAdapter() {
             Log.d(TAG, "GroupMessageRecyclerViewAdapter() > roomId=" + roomId);
@@ -430,15 +430,11 @@ public class GroupMessageActivity extends AppCompatActivity {
             String time = simpleDateFormatTime.format(date);
             String currentDate = simpleDateFormatDate.format(date);
 
-//            if(null == prevDate) {
-//                prevDate = currentDate;
-//            }
-
-            if(prevDate.equals(currentDate)) {
-                messageViewHolder.linearLayout_date.setVisibility(View.GONE);
-            } else {
+            if(!prevDate.equals(currentDate) || 0 == position) {
                 messageViewHolder.linearLayout_date.setVisibility(View.VISIBLE);
                 messageViewHolder.textView_date.setText(currentDate);
+            } else {
+                messageViewHolder.linearLayout_date.setVisibility(View.GONE);
             }
             prevDate = currentDate;
 

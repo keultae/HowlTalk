@@ -58,7 +58,7 @@ public class ChatFragment extends Fragment {
     }
 
     class ChatRecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm");
+        private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yy/MM/dd HH:mm");
         private String uid;
         private Map<String, UserModel> userModelMap = new HashMap<>();
         private List<RoomModel> roomModelList = new ArrayList<>();
