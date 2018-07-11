@@ -11,7 +11,7 @@
         android:id="@+id/groupMessageActivity_recyclerView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/groupMessageActivity_button"
+        android:layout_above="@+id/groupMessageActivity_linearlayout"
         android:layout_alignParentEnd="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
@@ -20,28 +20,25 @@
     </android.support.v7.widget.RecyclerView>
 
 
-    <EditText
-        android:id="@+id/groupMessageActivity_editText"
-        android:layout_width="294dp"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentStart="true" />
-    <Button
-        android:id="@+id/groupMessageActivity_button"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@id/groupMessageActivity_linearlayout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:text="보내기"/>
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true">
 
-    <!--<android.support.v7.widget.RecyclerView-->
-        <!--android:id="@+id/groupMessageActivity_recyclerView"-->
-        <!--android:layout_width="match_parent"-->
-        <!--android:layout_height="522dp"-->
-        <!--android:layout_alignParentEnd="true"-->
-        <!--android:layout_alignParentTop="true"-->
-        <!--android:layout_marginEnd="0dp"-->
-        <!--android:layout_marginTop="0dp" />-->
-
+        <!--EditText가 Button을 제외한 나머지 공간을 차지하기 위해서 EditText에만 가중치를 1로 지정하면 됨-->
+        <EditText
+            android:id="@+id/groupMessageActivity_editText"
+            android:layout_width="wrap_content"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"/>
+        <Button
+            android:id="@+id/groupMessageActivity_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="보내기"/>
+    </LinearLayout>
 </RelativeLayout>
