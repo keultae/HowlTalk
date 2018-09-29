@@ -1,5 +1,9 @@
 package com.keultae.howltalk.fragment;
 
+/**
+ * Git 연습을 위해 주석 추가
+ */
+
 import android.app.ActivityOptions;
 import android.app.Fragment;
 import android.content.Intent;
